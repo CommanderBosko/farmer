@@ -33,6 +33,12 @@ cleanly and progresses through the full unlock chain automatically.
   single-drone strategy.
 - **Auto-unlock purchasing**: `auto_unlocks()` buys the next unlock in the ordered
   progression whenever resources are sufficient.
+- **Crop transition clearing**: Before any `plant()` call, if the cell holds a foreign
+  entity, the bot harvests it (if ready) then tills to clear it. A `get_ground_type()`
+  guard after each clearing `till()` prevents the Soil→Grassland toggle edge case.
+- **Configurable pre-plant watering**: `MIN_WATER_LEVEL` (default 0.5) causes the bot
+  to water any soil cell below that moisture threshold before planting (carrot, wood,
+  sunflower). Pumpkin always waters to 1.0 regardless.
 - **Planting guards**: All `plant()` calls are preceded by `get_entity_type()` checks
   to avoid "Didn't have required items" warnings on occupied tiles.
 - **Pumpkin broken-tile recovery**: The pumpkin wait loop includes `harvest()` +
@@ -69,6 +75,7 @@ Edit `config.py` before running:
 | `MIN_POWER_STOCK` | `5 000` | Switch to sunflower farming when power drops below this. |
 | `MIN_WEIRD_SUBSTANCE_STOCK` | `500` | Run a maze when WS reaches this level. |
 | `MIN_GOLD_STOCK` | `0` | Grind mazes until this much gold is accumulated (0 = inactive). |
+| `MIN_WATER_LEVEL` | `0.5` | Pre-plant water threshold for soil crops (carrot, wood, sunflower). `0.0` disables. |
 | `NUM_DRONES` | `32` | Parallel drones for farming. Capped to `world_size`. Maze always single-drone. |
 
 `FOCUS_CROP` bypasses all prerequisite checks — manually pre-stock required
@@ -130,6 +137,19 @@ will not start and the game gives no error message.
 ---
 
 ## Recent Changes
+
+**2026-06-01 — Crop transition clearing and MIN_WATER_LEVEL watering**
+
+- Fixed crop transition bug: when switching to a new crop, foreign entities (e.g.
+  immature carrots in a sunflower strip) were not being cleared before planting. Added
+  `can_harvest()` + `harvest()` + `till()` + ground-type recheck before every `plant()`
+  call in the entity-clearing path. Applied to carrot, wood-tree, wood-carrot-fill,
+  pumpkin, and both passes of `farm_sunflower_strip()`.
+- Fixed `till()` toggle bug: an unconditional `till()` after a clearing step was
+  bouncing a Soil cell back to Grassland. All `till()` calls are now guarded with
+  `if get_ground_type() != Grounds.Soil`.
+- Added `MIN_WATER_LEVEL = 0.5` to `config.py` and corresponding watering logic to
+  carrot, wood, and sunflower branches. Pumpkin's full-water-to-1.0 loop is unchanged.
 
 **2026-05-31 — Sunflower parallelization and prerequisite buffer increase**
 
