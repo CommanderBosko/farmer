@@ -288,7 +288,12 @@ def farm(crop_choice, x, y):
 		if (x % 2 == 0 and y % 2 == 0) or (x % 2 == 1 and y % 2 == 1):
 			if get_ground_type() != Grounds.Soil:
 				till()
+			if config.MIN_WATER_LEVEL > 0 and get_water() < config.MIN_WATER_LEVEL and get_amount(Items.Water) > 0:
+				use_item(Items.Water)
 			if get_entity_type() != Entities.Tree:
+				till()
+				if get_ground_type() != Grounds.Soil:
+					till()
 				plant(Entities.Tree)
 		else:
 			if get_amount(Items.Hay) <= get_amount(Items.Carrot):
@@ -297,7 +302,12 @@ def farm(crop_choice, x, y):
 			else:
 				if get_ground_type() != Grounds.Soil:
 					till()
+				if config.MIN_WATER_LEVEL > 0 and get_water() < config.MIN_WATER_LEVEL and get_amount(Items.Water) > 0:
+					use_item(Items.Water)
 				if get_entity_type() != Entities.Carrot:
+					till()
+					if get_ground_type() != Grounds.Soil:
+						till()
 					plant(Entities.Carrot)
 
 	elif crop_choice == Items.Carrot:
@@ -305,7 +315,12 @@ def farm(crop_choice, x, y):
 			harvest()
 		if get_ground_type() != Grounds.Soil:
 			till()
+		if config.MIN_WATER_LEVEL > 0 and get_water() < config.MIN_WATER_LEVEL and get_amount(Items.Water) > 0:
+			use_item(Items.Water)
 		if get_entity_type() != Entities.Carrot:
+			till()
+			if get_ground_type() != Grounds.Soil:
+				till()
 			plant(Entities.Carrot)
 
 	elif crop_choice == Items.Pumpkin:
@@ -314,6 +329,9 @@ def farm(crop_choice, x, y):
 		if get_ground_type() != Grounds.Soil:
 			till()
 		if get_entity_type() != Entities.Pumpkin:
+			till()
+			if get_ground_type() != Grounds.Soil:
+				till()
 			while get_water() < 1:
 				use_item(Items.Water)
 			plant(Entities.Pumpkin)
@@ -573,7 +591,14 @@ def farm_sunflower_strip(start_x, end_x):
 			for y in range(world_size):
 				if get_ground_type() != Grounds.Soil:
 					till()
+				if config.MIN_WATER_LEVEL > 0 and get_water() < config.MIN_WATER_LEVEL and get_amount(Items.Water) > 0:
+					use_item(Items.Water)
 				if get_entity_type() != Entities.Sunflower:
+					if can_harvest():
+						harvest()
+					till()
+					if get_ground_type() != Grounds.Soil:
+						till()
 					plant(Entities.Sunflower)
 				elif can_harvest():
 					harvest()
@@ -586,7 +611,14 @@ def farm_sunflower_strip(start_x, end_x):
 			for y in range(world_size - 1, -1, -1):
 				if get_ground_type() != Grounds.Soil:
 					till()
+				if config.MIN_WATER_LEVEL > 0 and get_water() < config.MIN_WATER_LEVEL and get_amount(Items.Water) > 0:
+					use_item(Items.Water)
 				if get_entity_type() != Entities.Sunflower:
+					if can_harvest():
+						harvest()
+					till()
+					if get_ground_type() != Grounds.Soil:
+						till()
 					plant(Entities.Sunflower)
 				elif can_harvest():
 					harvest()

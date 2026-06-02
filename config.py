@@ -33,6 +33,11 @@ MIN_WEIRD_SUBSTANCE_STOCK = 500
 # Simulation, Leaderboard), then reset to 0 when done.
 MIN_GOLD_STOCK = 0
 
+# Minimum soil water level before watering a cell. Applies to all soil-based crops
+# (carrot, wood, sunflower); pumpkin always waters to 1.0 regardless. Set to 0.0
+# to disable. get_water() returns 0.0–1.0; watering requires Items.Water in inventory.
+MIN_WATER_LEVEL = 0.5
+
 # Number of drones to use for parallel farming (1 = single-drone, max = 32 with Megafarm maxed).
 # Capped automatically to world_size — you can't farm more columns than exist.
 # Maze always runs single-drone regardless of this setting.
