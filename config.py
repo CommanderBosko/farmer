@@ -21,6 +21,13 @@ MIN_PREREQ_STOCK = 500000
 # the brief detour. Requires Unlocks.Sunflowers to be purchased first.
 MIN_POWER_STOCK = 5000
 
+# Minimum Carrot stock required before entering sunflower (power) mode. Sunflower
+# seeds cost Carrots (up to 6 each), so the bot needs a carrot buffer to fill the
+# grid. Below this, it farms carrots instead of getting stuck unable to plant
+# sunflowers. Raise it if you run a large grid (cost scales with world_size^2);
+# lower it to enter sunflower mode more eagerly.
+MIN_CARROT_FOR_SUNFLOWER = 2000
+
 # Weird_Substance threshold for triggering maze farming. The bot will run a
 # maze (clearing the current farm) only when this much WS is stockpiled.
 # Maze cost = world_size * 2^(maze_level-1), so 500 comfortably covers any

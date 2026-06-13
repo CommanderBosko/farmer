@@ -175,8 +175,12 @@ def plant_decision():
 	if config.FOCUS_CROP and config.FOCUS_CROP in FOCUS_CROP_MAP:
 		return FOCUS_CROP_MAP[config.FOCUS_CROP] # Focus mode bypasses stock checks
 
-	# Power doubles drone speed — replenish before pursuing other goals
-	if num_unlocked(Unlocks.Sunflowers) > 0 and power < config.MIN_POWER_STOCK:
+	# Power doubles drone speed — replenish before pursuing other goals.
+	# Sunflower seeds are bought with Carrots, so only enter sunflower mode when we
+	# hold enough carrots to sustain it; otherwise fall through and farm carrots first.
+	# Without this guard, draining carrots in sunflower mode deadlocks: no carrots ->
+	# can't plant sunflowers -> no power -> never leaves sunflower mode.
+	if num_unlocked(Unlocks.Sunflowers) > 0 and power < config.MIN_POWER_STOCK and carrot >= config.MIN_CARROT_FOR_SUNFLOWER:
 		return Items.Power
 
 	# Prioritize maze runs when gold is below the manual-upgrade target
@@ -581,6 +585,17 @@ def farm_maze():
 	# Reset farm to a clean farmable state regardless of outcome
 	clear()
 
+# A Sunflower_Seed costs up to 6 Carrots (see GetItemCosts in-game); plant() auto-buys
+# the seed from Carrots. Only plant when we can afford the most expensive seed level —
+# otherwise the game warns "Didn't have the required items to plant Entities.Sunflower"
+# and the tile is left empty. num_items reads live inventory so it stays accurate as the
+# strip consumes carrots cell by cell across drones.
+MAX_SUNFLOWER_SEED_COST = 6
+
+def plant_sunflower_cell():
+	if num_items(Items.Carrot) >= MAX_SUNFLOWER_SEED_COST:
+		plant(Entities.Sunflower)
+
 def farm_sunflower_strip(start_x, end_x):
 	world_size = get_world_size()
 	goto_sw()
@@ -599,12 +614,12 @@ def farm_sunflower_strip(start_x, end_x):
 					till()
 					if get_ground_type() != Grounds.Soil:
 						till()
-					plant(Entities.Sunflower)
+					plant_sunflower_cell()
 				elif can_harvest():
 					harvest()
 					if get_ground_type() != Grounds.Soil:
 						till()
-					plant(Entities.Sunflower)
+					plant_sunflower_cell()
 				if y < world_size - 1:
 					move(North)
 		else:
@@ -619,12 +634,12 @@ def farm_sunflower_strip(start_x, end_x):
 					till()
 					if get_ground_type() != Grounds.Soil:
 						till()
-					plant(Entities.Sunflower)
+					plant_sunflower_cell()
 				elif can_harvest():
 					harvest()
 					if get_ground_type() != Grounds.Soil:
 						till()
-					plant(Entities.Sunflower)
+					plant_sunflower_cell()
 				if y > 0:
 					move(South)
 		if x < end_x - 1:
