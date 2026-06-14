@@ -1,6 +1,6 @@
 # Project State — Farmer Bot
 
-Last updated: 2026-06-01
+Last updated: 2026-06-13
 
 ---
 
@@ -30,9 +30,10 @@ at 32-drone accumulation rates.
 
 **What is in progress / partially done:**
 - Dinosaur farming: not yet implemented (Bones item documented but no farm_dinosaur()).
+- Pumpkin reliability: the original per-tile pumpkin logic (water → plant → flip → wait → harvest) leaves dead pumpkins on the grid. A full mega-pumpkin rework was attempted on 2026-06-13 but reverted (see below); `main` is back on the original logic.
 
 **What is broken / known issues:**
-- None blocking. See Known Issues section.
+- Pumpkin farming leaves dead pumpkins behind and does not reliably form mega-pumpkins. Not blocking the unlock chain (it still produces some pumpkins), but inefficient. See Known Issues.
 
 ---
 
@@ -62,6 +63,8 @@ at 32-drone accumulation rates.
 | 2026-05-31 | Maze is the only remaining single-drone strategy | Maze requires sequential wall-following; all other crops (including Sunflower) now parallelize |
 | 2026-06-01 | Clearing pattern: can_harvest() + till() + ground-recheck | Handles both occupied-entity clearing and the till() toggle edge case (Soil→Grassland) in a single, consistent pattern |
 | 2026-06-01 | MIN_WATER_LEVEL = 0.5; pumpkin branch untouched | Pumpkin already waters to 1.0 unconditionally; applying MIN_WATER_LEVEL would be a regression. Other soil crops benefit from light pre-plant moisture. |
+| 2026-06-13 | Reverted all pumpkin rework; `main` back at d585c32 | A day of pumpkin experiments (sweep-based → dead-pumpkin handling → mega-pumpkin convergence → multi-drone strips) all behaved worse in-game than the original. Reset `main` to start-of-day; work preserved on branch `backup/pumpkin-wip-2026-06-13`. |
+| 2026-06-13 | Documented the real pumpkin mechanic (from wiki/community) | ~20% of pumpkins die the instant they finish growing; a square only merges into a giant when EVERY tile is fully grown AND alive simultaneously; `plant(Entities.Pumpkin)` auto-replaces a dead/ungrown pumpkin; planting pumpkins costs Carrots. |
 
 ---
 
@@ -69,6 +72,7 @@ at 32-drone accumulation rates.
 
 - **Sunflower 8x bonus lost** — `sorted(harvestable, reverse=True)` was the mechanism; removed because `reverse=True` is a keyword argument. A manual selection-sort would restore the behavior without violating the parser constraint. The strip parallelism is now in place as a foundation.
 - **No Dinosaur farming** — `Unlocks.Dinosaurs` is purchased via auto_unlocks() but `farm_dinosaur()` does not exist. The bot has no strategy for harvesting Bones.
+- **Pumpkin leaves dead pumpkins / no mega-pumpkin** — the original logic plants/harvests pumpkins per-tile and does not handle the ~20% that die at maturity well, nor does it aim for the giant-pumpkin area bonus. The 2026-06-13 rework attempts (preserved on `backup/pumpkin-wip-2026-06-13`) failed in-game for reasons not fully diagnosed — likely a combination of: (a) pumpkin/carrot share the same grid, so when carrots dip below `MIN_PREREQ_STOCK` mid-grow the bot switches to carrots and **plows the in-progress pumpkin field** (restart-forever thrash); (b) convergence timing vs. growth was never validated live. Next attempt should isolate one variable at a time and watch a single field in-game.
 - **Pumpkin split-grid timing** — with N drones farming independent columns, the second pumpkin harvest sweep runs sequentially after all drones finish. This is correct but could miss pumpkins that ripen during the inter-drone delay on large grids.
 - **No class/OOP** — the game environment forbids Python classes. All state is module-level globals. This is a hard constraint, not debt.
 - **MIN_WATER_LEVEL not validated end-to-end** — the watering logic is in place but has not been observed running in a live session with a depleted water level across all affected branches.
@@ -77,7 +81,8 @@ at 32-drone accumulation rates.
 
 ## Next Steps
 
-1. Implement selection-sort inside `farm_sunflower_strip()` to restore max-petal-first harvesting without keyword arguments (foundation is now in place).
-2. Run the bot from a fresh game save — verify the full prerequisite chain at 32-drone throughput and observe crop transitions in action (entity clearing, till toggle fix, MIN_WATER_LEVEL watering).
-3. Add `farm_dinosaur()` stub and wire it into `plant_decision()` once Cactus farming is confirmed stable at scale.
-4. Consider adding a `MIN_BONES_STOCK` config knob in preparation for Polyculture (needs Bones for Polyculture Lvl 2).
+1. **Pumpkin, take 2 (smaller, validated):** decide first whether to (a) just make the *original* per-tile logic clear dead pumpkins reliably (modest, low-risk), or (b) retry the mega-pumpkin only after solving the carrot/grid plow-thrash (e.g. don't let `plant_decision()` switch off pumpkin mid-field, or dedicate a separate region). Change ONE thing, watch one field in-game before iterating. Reference: `backup/pumpkin-wip-2026-06-13`.
+2. Implement selection-sort inside `farm_sunflower_strip()` to restore max-petal-first harvesting without keyword arguments (foundation is now in place).
+3. Run the bot from a fresh game save — verify the full prerequisite chain at 32-drone throughput and observe crop transitions in action.
+4. Add `farm_dinosaur()` stub and wire it into `plant_decision()` once Cactus farming is confirmed stable at scale (the day's original goal: Dinosaurs/Bones gate Polyculture Lvl 2).
+5. Consider adding a `MIN_BONES_STOCK` config knob in preparation for Polyculture (needs Bones for Polyculture Lvl 2).

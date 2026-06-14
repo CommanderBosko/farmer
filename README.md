@@ -138,6 +138,17 @@ will not start and the game gives no error message.
 
 ## Recent Changes
 
+**2026-06-13 — Pumpkin rework explored and reverted (no net code change)**
+
+- Investigated pumpkin farming after it ran out of carrots and left dead pumpkins on
+  the grid. Documented the real mechanic (~20% of pumpkins die at maturity; a square
+  only merges into a giant when every tile is grown and alive at once; planting a
+  pumpkin costs carrots and auto-replaces a dead one).
+- Attempted a full mega-pumpkin rework (sweep-based → dead-pumpkin handling →
+  field convergence → multi-drone strips); each behaved worse in-game and was reverted.
+- `main` was reset to the prior commit; the experiments are preserved on branch
+  `backup/pumpkin-wip-2026-06-13`. Pumpkin still uses the original per-tile logic.
+
 **2026-06-01 — Crop transition clearing and MIN_WATER_LEVEL watering**
 
 - Fixed crop transition bug: when switching to a new crop, foreign entities (e.g.

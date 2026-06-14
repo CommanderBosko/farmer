@@ -1,3 +1,37 @@
+## Session: 2026-06-13 — Pumpkin rework explored and reverted (net: no main change)
+
+**Duration Estimate**: Single session, exploratory
+**Session Focus**: Started toward Dinosaurs/Bones, pivoted to fixing pumpkin farming after observing it ran out of carrots and left dead pumpkins; attempted a full mega-pumpkin rework, then reverted everything to start-of-day after it behaved worse in-game.
+
+### What Was Accomplished
+- Diagnosed the carrot-shortage-during-pumpkin-planting bug and shipped a guard (`MIN_CARROT_FOR_PUMPKIN`) — later reverted with everything else.
+- Researched and documented the **real pumpkin mechanic** (wiki + community): ~20% of pumpkins die the instant they finish growing; a square only merges into a giant when EVERY tile is fully grown AND alive simultaneously; `plant(Entities.Pumpkin)` auto-replaces a dead/ungrown pumpkin (no harvest/till first); planting pumpkins costs Carrots; `Entities.Dead_Pumpkin` is the dead-tile entity.
+- Iterated through four pumpkin designs (sweep-based non-blocking → dead-pumpkin replant loop → mega-pumpkin field convergence → multi-drone strips). Each was tested in-game and rejected.
+- Identified the likely root failure of the rework: **pumpkin and carrot share the grid**, so when carrots dip below `MIN_PREREQ_STOCK` mid-grow, `plant_decision()` switches to carrots and plows the in-progress pumpkin field — restart-forever thrash.
+- **Reverted `main` to start-of-day (`d585c32`)** at the user's request ("that was closer than we are now"). Preserved the full day's work on branch `backup/pumpkin-wip-2026-06-13`.
+
+### Files Changed
+- **None on `main`** — `main` was reset to `d585c32`; working tree clean. (This commit only touches the session docs.)
+- Backup branch `backup/pumpkin-wip-2026-06-13` holds the reverted experiments (main.py, config.py, CLAUDE.md) for reference/recovery.
+
+### Commits This Session
+- `7475cb3` — Guard pumpkin planting against carrot shortage (committed, then reverted off `main`; lives on backup branch)
+- `920414a` — WIP backup: pumpkin mega-pumpkin + multi-drone experiments (backup branch only)
+
+### Decisions Made
+- **Reverted rather than kept iterating** — four pumpkin designs each performed worse in-game than the original per-tile logic; the original is the better baseline to build on next time.
+- **Preserved work on a branch instead of discarding** — the mechanic research and the convergence/multi-drone code are worth keeping for a future, smaller attempt.
+
+### Issues Encountered
+- Repeated in-game regressions from each pumpkin redesign (carrot drain → dead pumpkins left behind → field never converging / "1 drone, 1 column, keeps restarting").
+- Could not validate any change against the live game from the dev environment — every iteration depended on the user observing behavior, which lengthened the loop.
+
+### Remaining / Next Session
+- Decide pumpkin direction: minimal dead-pumpkin fix on the original logic vs. a properly-isolated mega-pumpkin retry that first solves the carrot/grid plow-thrash. Change one variable, watch one field.
+- Then resume the original goal: implement `farm_dinosaur()` / Bones farming (gates Polyculture Lvl 2).
+
+---
+
 ## Session: 2026-06-01 — Crop transition clearing and MIN_WATER_LEVEL watering
 
 **Duration Estimate**: Single session (one commit batch)
