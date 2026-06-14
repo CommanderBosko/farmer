@@ -338,7 +338,9 @@ def farm(crop_choice, x, y):
 				till()
 			while get_water() < 1:
 				use_item(Items.Water)
-			plant(Entities.Pumpkin)
+			# Carrot reserve: pumpkins cost 256 Carrot each; don't plant below the reserve
+			if num_items(Items.Carrot) >= config.MIN_CARROT_FOR_PUMPKIN:
+				plant(Entities.Pumpkin)
 		if get_amount(Items.Fertilizer) > 0:
 			use_item(Items.Fertilizer)
 		else:
@@ -347,6 +349,8 @@ def farm(crop_choice, x, y):
 		pumpkin_iter = 0
 		while not can_harvest():
 			if pumpkin_iter >= 100:
+				break
+			if num_items(Items.Carrot) < config.MIN_CARROT_FOR_PUMPKIN:
 				break
 			pumpkin_iter += 1
 			harvest()

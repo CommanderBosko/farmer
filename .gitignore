@@ -1,2 +1,13 @@
 __pycache__/
 *.pyc
+
+# Generated from main.py by gen_bench_main.py (regenerate via the /bench skill)
+bench_main.py
+
+# Throwaway simulate() sandbox probe scratch files
+probe.py
+sim_probe_target.py
+probe_target_a.py
+
+# Machine-local Claude Code settings
+.claude/settings.local.json

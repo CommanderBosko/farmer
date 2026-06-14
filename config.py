@@ -28,6 +28,14 @@ MIN_POWER_STOCK = 5000
 # lower it to enter sunflower mode more eagerly.
 MIN_CARROT_FOR_SUNFLOWER = 2000
 
+# Carrot RESERVE that pumpkin planting will not dip below. Planting a pumpkin costs
+# 256 Carrot, and the bot farms pumpkins to afford pumpkin-cost upgrades — without a
+# floor, one pumpkin pass (made worse by the inner replant loop) drains carrots to 0,
+# leaving carrot oscillating 0<->~600k. With this reserve the pumpkin path stops
+# planting once live carrot stock falls below it, so carrot floors here instead of 0.
+# Raise to protect more carrots (slower pumpkin growth); lower for more pumpkins.
+MIN_CARROT_FOR_PUMPKIN = 100000
+
 # Weird_Substance threshold for triggering maze farming. The bot will run a
 # maze (clearing the current farm) only when this much WS is stockpiled.
 # Maze cost = world_size * 2^(maze_level-1), so 500 comfortably covers any
