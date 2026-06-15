@@ -44,12 +44,13 @@ plays "The Farmer Was Replaced"; the harness uses the in-game `simulate()` funct
    OUT="$HOME/.local/share/Steam/steamapps/compatdata/2060160/pfx/drive_c/users/steamuser/AppData/LocalLow/TheFarmerWasReplaced/TheFarmerWasReplaced/output.txt"
    grep -nE "BENCH|VERDICT|WATCH|init |loops_run|outer:" "$OUT"
    ```
-   - `VERDICT: PASS` — no tracked resource hit zero.
-   - `VERDICT: FAIL - starved (hit zero): ...` — a resource collapsed; that's a real
+   - `VERDICT: PASS` — no tracked resource ended empty (`final == 0`).
+   - `VERDICT: FAIL - ended empty: ...` — a resource collapsed to 0; that's a real
      set-and-forget failure to investigate in `main.py`.
    - `WATCH (spent down, above zero): ...` — non-fatal; the bot draws down its
      highest stock to top up the lowest. Not a failure.
-   - `bones` will read 0 (Bones farming is unimplemented — known gap, expected flag).
+   - `bones: not farmable in-sim (dino hat) - validate live` — expected; bones is
+     **excluded** from PASS/FAIL (the sim can't equip hats). Not a regression.
 
 ## Knobs
 
@@ -64,3 +65,7 @@ plays "The Farmer Was Replaced"; the harness uses the in-game `simulate()` funct
 - Pyright "undefined" errors for `Items`/`Unlocks`/`simulate`/`quick_print` are
   expected (game-injected) — not real errors.
 - `output.txt` is overwritten each run, so it only holds the latest run.
+- **Bones can't be bench-validated.** Bones farming needs `change_hat(Hats.Dinosaur_Hat)`,
+  and hats error inside `simulate()`, so `bench_main` SKIPS the bones branch (advancing the
+  throttle) and the verdict EXCLUDES bones. Validate bones LIVE — never treat the bones line
+  as a regression. (It is implemented as `farm_bones()`; earlier "unimplemented" wording was stale.)
