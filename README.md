@@ -7,8 +7,9 @@ treasure runs, Sunflower power farming, and Gold accumulation.
 
 ## Current Status
 
-Active development — all core crop strategies implemented and running. Bot starts
-cleanly and progresses through the full unlock chain automatically.
+Active development. All core crop strategies run unattended, the tech-tree blocker
+is cleared (Bones farming works and Polyculture Lvl 2 is unlocked), and a
+`simulate()`-based benchmark harness guards against resource-starvation regressions.
 
 ---
 
@@ -45,6 +46,14 @@ cleanly and progresses through the full unlock chain automatically.
   `plant()` to recover tiles where pumpkins fail to plant or break.
 - **Cactus phase state machine**: Full bubble-sort pipeline (plant → wait →
   sort rows → sort columns → harvest) for maximum cactus yield.
+- **Bones farming**: `farm_bones()` wears the Dinosaur hat and runs a snake
+  (Hamiltonian boustrophedon, reserved return lane) eating apples to grow a tail,
+  then unequips to cash out `tail_length²` Bones. Throttled lowest-stock rotation;
+  single-drone; even world size only.
+- **simulate() benchmark harness**: `gen_bench_main.py` + `bench.py` run the real
+  strategy in the game's `simulate()` sandbox and report per-resource
+  init/min/final + PASS/FAIL, catching starvation bugs before they ship. Driven via
+  the `/bench` skill.
 
 ---
 
@@ -76,7 +85,11 @@ Edit `config.py` before running:
 | `MIN_WEIRD_SUBSTANCE_STOCK` | `500` | Run a maze when WS reaches this level. |
 | `MIN_GOLD_STOCK` | `0` | Grind mazes until this much gold is accumulated (0 = inactive). |
 | `MIN_WATER_LEVEL` | `0.5` | Pre-plant water threshold for soil crops (carrot, wood, sunflower). `0.0` disables. |
-| `NUM_DRONES` | `32` | Parallel drones for farming. Capped to `world_size`. Maze always single-drone. |
+| `NUM_DRONES` | `32` | Parallel drones for farming. Capped to `world_size`. Maze/Bones always single-drone. |
+| `MIN_CARROT_FOR_PUMPKIN` | `100 000` | Carrot reserve the pumpkin path won't dip below (pumpkins cost 256 Carrot each). |
+| `MIN_CACTUS_FOR_BONES` | `100 000` | Cactus reserve required before a bones run (apples cost 64 Cactus each). |
+| `BONES_LOOP_INTERVAL` | `10` | Run bones at most once per this many outer loops. |
+| `BONES_LAPS` | `8` | Snake laps per bones run (more laps = longer tail = more bones). |
 
 `FOCUS_CROP` bypasses all prerequisite checks — manually pre-stock required
 resources before enabling it.
@@ -97,11 +110,17 @@ The script runs indefinitely. Stop it from the game's interface.
 farmer/
 ├── main.py           — All bot logic; entry point is the bottom of the file
 ├── config.py         — User-tunable knobs (see table above)
+├── gen_bench_main.py — Generates bench_main.py (a terminating twin of main) for the harness
+├── bench.py          — In-game runner for the simulate() benchmark
 ├── original-main.py  — Backup of the pre-refactor version (reference only)
 ├── CLAUDE.md         — AI coding assistant instructions and full API reference
+├── docs/             — simulate-brief.md (harness design brief)
+├── .claude/skills/   — Project skills: bench, game-probe, config-set, farm-status, syntax-check
 ├── session-summary.md — Running log of development sessions
 └── project-state.md  — Current project snapshot and next steps
 ```
+
+`bench_main.py` is generated (gitignored); regenerate it with `python3 gen_bench_main.py`.
 
 ### Key functions in main.py
 
@@ -117,6 +136,7 @@ farmer/
 | `farm_sunflower_strip(x0, x1)` | Column-slice sunflower traversal (called by each drone) |
 | `farm_sunflower()` | N-drone dispatcher: spawns strips, waits for all drones |
 | `farm_maze()` | Wall-following maze solver; harvests gold from treasure chest |
+| `farm_bones()` | Dinosaur-hat snake; grows a tail eating apples, unequips for `tail²` Bones |
 | `get_next_unlock_goal()` | Returns the next unlock the bot should save toward |
 | `goto_sw()` | Navigates drone to origin (x=0, y=0) |
 
@@ -137,6 +157,17 @@ will not start and the game gives no error message.
 ---
 
 ## Recent Changes
+
+**2026-06-14 — simulate() harness, carrot-drain fix, and Bones farming**
+
+- Built a `simulate()` no-starvation benchmark harness (`gen_bench_main.py` generates
+  a terminating twin of `main`; `bench.py` runs it; results read from `output.txt`).
+- The harness reproduced a carrot-drain bug — pumpkin planting costs 256 Carrot and
+  drained the buffer to 0 — fixed with a `MIN_CARROT_FOR_PUMPKIN` reserve.
+- Implemented **Bones farming** (`farm_bones()`), a Dinosaur-hat snake yielding
+  `tail_length²` Bones; live-validated (~16.9k bones / 8 laps). This cleared the
+  Polyculture Lvl 2 blocker (10k Bones), which is now unlocked.
+- Added project skills `/bench` and `/game-probe`; moved farm skills to project scope.
 
 **2026-06-13 — Pumpkin rework explored and reverted (no net code change)**
 
@@ -188,11 +219,11 @@ will not start and the game gives no error message.
 
 ## Roadmap
 
-- Restore sunflower 8x petal-bonus harvesting using a keyword-argument-free
-  manual sort.
-- Implement Dinosaur Hat / Bones farming.
-- Add Polyculture companion planting support once Bones stock is available.
-- Investigate Leaderboard / Simulation unlock strategies.
+- **Companion planting** — apply the Polyculture `get_companion()` yield multiplier
+  (5×→10×→20×), now that Polyculture Lvl 2 is unlocked.
+- Pumpkin mega-pumpkin reliability (take 2), isolating the carrot/grid plow-thrash.
+- Restore the sunflower max-petal bonus using a keyword-argument-free manual sort.
+- Harness v2: config auto-tuning / A-B strategy comparison against bench `run_time`.
 
 ---
 

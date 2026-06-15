@@ -1,3 +1,48 @@
+## Session: 2026-06-14 — simulate() harness, carrot-drain fix, and bone farming (project blocker cleared)
+
+**Duration Estimate**: Long, multi-arc session
+**Session Focus**: Implement the new `simulate()` function as a benchmark harness, then use it to find/fix a starvation bug, then implement Dinosaur/Bones farming — clearing the long-standing Polyculture Lvl 2 blocker.
+
+### What Was Accomplished
+- **Built a `simulate()` no-starvation bench harness.** `gen_bench_main.py` generates `bench_main` (a terminating twin of `main`, strategy single-source); `bench.py` runs it via `simulate()`; results read off `output.txt`. Reports per-resource init/min/final + PASS/FAIL.
+- **Reverse-engineered the simulate() sandbox** via in-game probes: `globals` injection works only for *undeclared* names and is *not* read back (dict not mutated); `quick_print` inside a sim DOES reach `output.txt` (the readback channel); hats and `get_op_count`/`get_time` error in-sim; `Items.Bone` not `Items.Bones`.
+- **Discovered the repo↔game file sync**: `Save0/main.py` & `config.py` are symlinks to the repo; new files need a Save0 symlink + save reload to register. (Two subagents nailed this down.)
+- **Found and fixed a carrot-drain bug** the harness reproduced cold: pumpkin planting costs 256 Carrot, and the bot drained the carrot buffer to 0 chasing pumpkin-cost upgrades (oscillating 0↔600k). Fix: a `MIN_CARROT_FOR_PUMPKIN` reserve. Re-benched: carrot floors at the reserve.
+- **Implemented Bones farming** (`farm_bones()`): dinosaur-hat snake (Hamiltonian boustrophedon, reserved bottom row) eating apples (64 Cactus each) → `tail_length²` Bones. Live-validated at ~16.9k bones / 8 laps. Wired as a throttled lowest-stock branch; `bones` is now a tracked global. **User confirmed it farms live and bought Polyculture Lvl 2** — the project blocker is cleared.
+- **Moved farm skills to project scope** and added two: `/bench` (run the harness) and `/game-probe` (the in-game diagnostic loop); upgraded `/bench` after bones made its guidance stale.
+
+### Files Changed
+- `gen_bench_main.py`, `bench.py` — new bench harness (generator + runner).
+- `docs/simulate-brief.md` — confirmed scoping brief for the harness.
+- `main.py` — `MIN_CARROT_FOR_PUMPKIN` guards; `farm_bones()`; bones as tracked resource (globals, `update_amounts`, `get_amount`, `plant_decision` throttled branch, dispatch).
+- `config.py` — `MIN_CARROT_FOR_PUMPKIN`, `MIN_CACTUS_FOR_BONES`, `BONES_LOOP_INTERVAL`, `BONES_LAPS`.
+- `CLAUDE.md` — bones strategy + config knobs documented.
+- `.claude/skills/` — `bench`, `game-probe` added (+ `config-set`/`farm-status`/`syntax-check` moved to project scope).
+- `.gitignore` — ignore generated `bench_main.py` and throwaway probe scratch files.
+
+### Commits This Session
+- `8703065` — Add simulate() no-starvation harness + carrot-reserve fix
+- `1f8edd4` — Add bone farming (dinosaur snake) as a tracked resource
+- `4a25cf2` — Add game-probe skill
+- `8487313` — Update bench skill: bones is live-validated, not bench-testable
+
+### Decisions Made
+- Generated twin (not a refactor/import) keeps the bench's strategy single-source while letting it terminate.
+- Bones is validated **live** and excluded from the bench (hats error in-sim); `bench_main` skips it.
+- Bones runs single-drone, even world size only, throttled (one dino hat; long blocking run; cycle closes only on even sizes).
+
+### Issues Encountered
+- New files don't appear in-game until symlinked into Save0 + save reloaded (big detour, now solved).
+- The bench sim is hatless and lacks `get_op_count`/`get_time` — budget loops with a plain counter; bones can't be sim-tested.
+- The web wiki was wrong (apples cost Cactus, not pumpkins); the in-game `get_cost` probe was authoritative.
+
+### Remaining / Next Session
+- **Companion planting** (`get_companion()`) for the Polyculture multiplier — biggest open win.
+- Observe the live bones trigger end-to-end; tune `BONES_LAPS` / `BONES_LOOP_INTERVAL`.
+- Pumpkin mega-pumpkin reliability, take 2.
+
+---
+
 ## Session: 2026-06-13 — Pumpkin rework explored and reverted (net: no main change)
 
 **Duration Estimate**: Single session, exploratory
