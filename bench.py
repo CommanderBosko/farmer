@@ -9,11 +9,11 @@
 
 unlocks = {}
 for u in Unlocks:
-    unlocks[u] = num_unlocked(u)
+	unlocks[u] = num_unlocked(u)
 
 items = {}
 for it in Items:
-    items[it] = num_items(it)
+	items[it] = num_items(it)
 
 glob = {}
 seed = 1
