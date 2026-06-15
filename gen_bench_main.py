@@ -91,6 +91,10 @@ while loop_counter < MAX_LOOPS:
         farm_maze()
     elif crop_choice == Items.Power:
         farm_sunflower()
+    elif crop_choice == Items.Bone:
+        # Bones can't be farmed in-sim (the dino hat errors); skip but advance the
+        # throttle so the rest of the rotation still runs. Validate bones LIVE.
+        last_bones_loop = loop_counter
     else:
         world_size = get_world_size()
         num_drones = min(config.NUM_DRONES, world_size)
@@ -128,48 +132,50 @@ quick_print("cactus  init " + str(init_cactus) + "  min " + str(min_cactus) + " 
 quick_print("gold    init " + str(init_gold) + "  min " + str(min_gold) + "  final " + str(gold))
 quick_print("bones   init " + str(init_bones) + "  min " + str(min_bones) + "  final " + str(bones))
 
-# Starvation = a resource hit zero at any point during the run (min == 0). That
-# is the hard set-and-forget failure, so it drives PASS/FAIL. Resources that
-# merely spent down (final < init) but never hit zero are reported as a non-fatal
-# WATCH list, since the bot deliberately draws down its highest stock to top up
-# the lowest one. This avoids the false alarms a plain final<init check produced.
+# Starvation = a tracked resource ENDED empty (final == 0) -> the hard
+# set-and-forget failure, so it drives PASS/FAIL. Resources that merely spent
+# down (final < init, but still > 0) are a non-fatal WATCH list (the bot draws
+# down its highest stock to top up the lowest). final==0 (not min==0) avoids
+# falsely flagging a resource that grows up from a zero start. Bones is EXCLUDED
+# from PASS/FAIL: it can't be farmed in-sim (dino hat errors) so it's validated
+# live, not here; min/final are still reported above for reference.
 starved = ""
-if min_hay == 0:
+if hay == 0:
     starved = starved + " hay"
-if min_wood == 0:
+if wood == 0:
     starved = starved + " wood"
-if min_carrot == 0:
+if carrot == 0:
     starved = starved + " carrot"
-if min_pumpkin == 0:
+if pumpkin == 0:
     starved = starved + " pumpkin"
-if min_cactus == 0:
+if cactus == 0:
     starved = starved + " cactus"
-if min_gold == 0:
+if gold == 0:
     starved = starved + " gold"
-if min_bones == 0:
-    starved = starved + " bones"
 
 watch = ""
-if hay < init_hay and min_hay > 0:
+if hay < init_hay and hay > 0:
     watch = watch + " hay"
-if wood < init_wood and min_wood > 0:
+if wood < init_wood and wood > 0:
     watch = watch + " wood"
-if carrot < init_carrot and min_carrot > 0:
+if carrot < init_carrot and carrot > 0:
     watch = watch + " carrot"
-if pumpkin < init_pumpkin and min_pumpkin > 0:
+if pumpkin < init_pumpkin and pumpkin > 0:
     watch = watch + " pumpkin"
-if cactus < init_cactus and min_cactus > 0:
+if cactus < init_cactus and cactus > 0:
     watch = watch + " cactus"
-if gold < init_gold and min_gold > 0:
+if gold < init_gold and gold > 0:
     watch = watch + " gold"
+
+quick_print("bones: not farmable in-sim (dino hat) - validate live")
 
 if watch != "":
     quick_print("WATCH (spent down, above zero):" + watch)
 
 if starved == "":
-    quick_print("VERDICT: PASS - no tracked resource hit zero")
+    quick_print("VERDICT: PASS - no tracked resource ended empty")
 else:
-    quick_print("VERDICT: FAIL - starved (hit zero):" + starved)
+    quick_print("VERDICT: FAIL - ended empty:" + starved)
 '''
 
 (ROOT / "bench_main.py").write_text(head + BOTTOM)

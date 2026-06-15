@@ -36,6 +36,23 @@ MIN_CARROT_FOR_SUNFLOWER = 2000
 # Raise to protect more carrots (slower pumpkin growth); lower for more pumpkins.
 MIN_CARROT_FOR_PUMPKIN = 100000
 
+# --- Bones / Dinosaur snake farming ---
+# Bones come from wearing Hats.Dinosaur_Hat and growing a snake: eat apples (each
+# costs 64 Cactus) to grow a tail, then unequip to cash out length**2 Items.Bone.
+# It's a single-drone, full-farm takeover (clears the farm), so it's throttled.
+
+# Don't start a bones run unless Cactus stock is at least this high (apples cost
+# 64 Cactus each; a run eats roughly one apple per tail segment).
+MIN_CACTUS_FOR_BONES = 100000
+
+# Throttle: run bones at most once per this many outer loops.
+BONES_LOOP_INTERVAL = 10
+
+# How many full-field snake laps per bones run. More laps = longer tail = more
+# bones (length**2), but a longer single-drone run. ~8 laps -> tail ~130 ->
+# ~17k bones on a 32x32 farm. Moves fail harmlessly once the snake fills the field.
+BONES_LAPS = 8
+
 # Weird_Substance threshold for triggering maze farming. The bot will run a
 # maze (clearing the current farm) only when this much WS is stockpiled.
 # Maze cost = world_size * 2^(maze_level-1), so 500 comfortably covers any

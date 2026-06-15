@@ -9,6 +9,7 @@ FOCUS_CROP_MAP = {
 	"Cactus": Items.Cactus,
 	"Maze": Items.Weird_Substance,
 	"Sunflower": Items.Power,
+	"Bones": Items.Bone,
 }
 
 # --- Global State ---
@@ -22,7 +23,9 @@ fertilizer = 0
 water = 0
 power = 0
 gold = 0
+bones = 0
 loop_counter = 0 # New: Global counter for loop iterations
+last_bones_loop = 0 # Loop index of the last bones run (throttle for farm_bones)
 
 # Map Items enum to readable names for printing
 ITEM_NAMES = {
@@ -34,6 +37,7 @@ ITEM_NAMES = {
 	Items.Weird_Substance: "Weird_Substance",
 	Items.Power: "Power",
 	Items.Gold: "Gold",
+	Items.Bone: "Bones",
 }
 # New: Map Unlocks enum to readable names
 UNLOCK_NAMES = {
@@ -103,6 +107,8 @@ def get_amount(item):
 		return power
 	if item == Items.Gold:
 		return gold
+	if item == Items.Bone:
+		return bones
 	return 0
 
 def get_next_unlock_goal():
@@ -182,6 +188,14 @@ def plant_decision():
 	# can't plant sunflowers -> no power -> never leaves sunflower mode.
 	if num_unlocked(Unlocks.Sunflowers) > 0 and power < config.MIN_POWER_STOCK and carrot >= config.MIN_CARROT_FOR_SUNFLOWER:
 		return Items.Power
+
+	# Bones (single-drone snake): farm when bones is the lowest tracked stock,
+	# throttled to once per BONES_LOOP_INTERVAL loops (each run is a long full-farm
+	# takeover), and only with a Cactus buffer since apples cost 64 Cactus each.
+	if num_unlocked(Unlocks.Dinosaurs) > 0 and cactus >= config.MIN_CACTUS_FOR_BONES:
+		if loop_counter - last_bones_loop >= config.BONES_LOOP_INTERVAL:
+			if bones <= hay and bones <= wood and bones <= carrot and bones <= pumpkin and bones <= cactus:
+				return Items.Bone
 
 	# Prioritize maze runs when gold is below the manual-upgrade target
 	if config.MIN_GOLD_STOCK > 0 and gold < config.MIN_GOLD_STOCK and num_unlocked(Unlocks.Mazes) > 0:
@@ -270,6 +284,7 @@ def update_amounts():
 	global water
 	global power
 	global gold
+	global bones
 	hay = num_items(Items.Hay)
 	wood = num_items(Items.Wood)
 	carrot = num_items(Items.Carrot)
@@ -280,6 +295,11 @@ def update_amounts():
 	water = num_items(Items.Water)
 	power = num_items(Items.Power)
 	gold = num_items(Items.Gold)
+	# Items.Bone only exists once Dinosaurs is unlocked; guard to avoid an error.
+	if num_unlocked(Unlocks.Dinosaurs) > 0:
+		bones = num_items(Items.Bone)
+	else:
+		bones = 0
 
 def farm(crop_choice, x, y):
 	if crop_choice == Items.Hay:
@@ -589,6 +609,39 @@ def farm_maze():
 	# Reset farm to a clean farmable state regardless of outcome
 	clear()
 
+def farm_bones():
+	# Single-drone snake: wear the Dinosaur hat, sweep the whole field eating
+	# apples (each costs 64 Cactus), then unequip to cash out tail_length**2 as
+	# Items.Bone. Validated live (the bench sim can't equip hats).
+	#
+	# Path = a Hamiltonian cycle with the bottom row (y=0) reserved as a return
+	# lane, so it covers every tile and returns to (0,0); repeating it grows the
+	# snake. Requires an EVEN world size (odd sizes don't close cleanly). Once the
+	# snake fills the field, further move()s fail harmlessly (1 tick each).
+	n = get_world_size()
+	if n % 2 != 0:
+		return  # odd size: skip (would need set_world_size to make it even)
+	clear()
+	change_hat(Hats.Dinosaur_Hat)
+	lap = 0
+	while lap < config.BONES_LAPS:
+		lap += 1
+		move(North)                      # (0,0) -> (0,1): enter the comb
+		for x in range(n):
+			if x % 2 == 0:
+				for k in range(n - 2):
+					move(North)
+			else:
+				for k in range(n - 2):
+					move(South)
+			if x < n - 1:
+				move(East)
+		move(South)                      # drop to the return lane (y=0)
+		for k in range(n - 1):
+			move(West)                   # run home along row 0 to (0,0)
+	change_hat(Hats.Pumpkin_Hat)         # unequip -> cash out length**2 bones
+	clear()                              # leave a clean field for the next crop
+
 # A Sunflower_Seed costs up to 6 Carrots (see GetItemCosts in-game); plant() auto-buys
 # the seed from Carrots. Only plant when we can afford the most expensive seed level —
 # otherwise the game warns "Didn't have the required items to plant Entities.Sunflower"
@@ -707,6 +760,9 @@ while True:
 		farm_maze()
 	elif crop_choice == Items.Power:
 		farm_sunflower()
+	elif crop_choice == Items.Bone:
+		farm_bones()
+		last_bones_loop = loop_counter
 	else:
 		world_size = get_world_size()
 		num_drones = min(config.NUM_DRONES, world_size)
