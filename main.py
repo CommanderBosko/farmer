@@ -117,58 +117,26 @@ def get_amount(item):
 		return bones
 	return 0
 
-def get_next_unlock_goal():
-	unlocks_to_check = [
-		# Hay-cost unlocks (cheapest first)
-		(Unlocks.Loops, Items.Hay),
-		(Unlocks.Plant, Items.Hay),
-		(Unlocks.Hats, Items.Hay),
-		(Unlocks.Speed, Items.Hay),
-		(Unlocks.Senses, Items.Hay),
-		# Wood-cost unlocks
-		(Unlocks.Grass, Items.Wood),
-		(Unlocks.Carrots, Items.Wood),
-		(Unlocks.Fertilizer, Items.Wood),
-		(Unlocks.Watering, Items.Wood),
-		# Carrot-cost unlocks
-		(Unlocks.Variables, Items.Carrot),
-		(Unlocks.Functions, Items.Carrot),
-		(Unlocks.Import, Items.Carrot),
-		(Unlocks.Lists, Items.Carrot),
-		(Unlocks.Sunflowers, Items.Carrot),
-		(Unlocks.Trees, Items.Hay),
-		(Unlocks.Pumpkins, Items.Carrot),
-		# Pumpkin-cost unlocks
-		(Unlocks.Utilities, Items.Pumpkin),
-		(Unlocks.Timing, Items.Pumpkin),
-		(Unlocks.Costs, Items.Pumpkin),
-		(Unlocks.Dictionaries, Items.Pumpkin),
-		(Unlocks.Polyculture, Items.Pumpkin),
-		(Unlocks.Auto_Unlock, Items.Pumpkin),
-		(Unlocks.Expand, Items.Pumpkin),
-		# Cactus-cost unlocks
-		(Unlocks.Cactus, Items.Pumpkin),
-		(Unlocks.Dinosaurs, Items.Cactus),
-		(Unlocks.Mazes, Items.Cactus),
-	]
-
-	cheapest_goal = (None, None)
-	min_cost = 10 ** 15
-
-	for unlock_item, required_item in unlocks_to_check:
-		cost = get_cost(unlock_item)
-		
-		# If the unlock is available to be purchased and costs the expected item
-		if cost and required_item in cost:
-			required_amount = cost[required_item]
-
-			# If we can't afford it yet AND it's the cheapest so far
-			shortfall = required_amount - get_amount(required_item)
-			if shortfall > 0 and shortfall < min_cost:
-				min_cost = shortfall
-				cheapest_goal = (required_item, UNLOCK_NAMES[unlock_item])
-
-	return cheapest_goal
+def get_next_unlock_name():
+	# The unlock we're progressing toward = the non-maxed unlock closest to affordable
+	# (smallest bottleneck shortfall across its cost items). Iterates every Unlocks
+	# entry so it handles multi-resource and bones-cost unlocks correctly. Returns a
+	# readable name (the "Unlocks." prefix stripped), or None when every unlock is maxed.
+	best_name = None
+	best_short = 0
+	for u in Unlocks:
+		cost = get_cost(u)
+		if not cost:
+			continue  # maxed: no next level
+		short = 0
+		for item in cost:
+			gap = cost[item] - get_amount(item)
+			if gap > short:
+				short = gap
+		if best_name == None or short < best_short:
+			best_short = short
+			best_name = str(u)[8:]  # drop the "Unlocks." prefix
+	return best_name
 
 def plant_decision():
 	# Helper to check prerequisite stock
@@ -756,18 +724,18 @@ while True:
 
 	# Print goal occasionally based on config
 	if config.PRINT_GOAL_INTERVAL and loop_counter % config.PRINT_GOAL_INTERVAL == 0:
-		# Get goal info for printing
-		goal_item, unlock_name = get_next_unlock_goal()
+		# Get the unlock we're working toward for printing
+		unlock_name = get_next_unlock_name()
 
 		if crop_choice in ITEM_NAMES:
 			current_goal_name = ITEM_NAMES[crop_choice]
 		else:
 			current_goal_name = "Unknown Goal"
 
-		status_message = "Current Goal: " + current_goal_name
-		# Add unlock name to status if there is one
-		if unlock_name and not config.FOCUS_CROP:
-			status_message = status_message + " (for upgrading " + unlock_name + ")"
+		if unlock_name == None:
+			status_message = "Current Goal: " + current_goal_name + " for Unlock: Unlocks Complete!"
+		else:
+			status_message = "Current Goal: " + current_goal_name + " for Unlock: " + unlock_name
 
 		quick_print('--------------------------------------------------------------------')
 		quick_print(status_message)
