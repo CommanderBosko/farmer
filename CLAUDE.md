@@ -41,11 +41,16 @@ This is a farming automation bot for a game. The game injects its own API at run
 1. Initialization: `clear()`, `change_hat()`
 2. Infinite loop:
    - `update_amounts()` — sync global inventory vars from game
-   - `plant_decision()` — pick crop based on config/unlock goals/lowest stock
-   - `auto_unlocks()` — spend resources on unlocks if affordable
-   - `farm_grid(crop_choice, start_x, end_x)` or two drones calling it on split columns
-   - Periodic goal status print
+   - `auto_unlocks()` — buy any unlock whose full `get_cost()` is affordable (`can_afford`)
+   - `plant_decision()` — pick what to farm (see below)
+   - `farm_grid(crop_choice, start_x, end_x)` or multiple drones on split columns (or `farm_cactus`/`farm_maze`/`farm_sunflower`/`farm_bones` for the special goals)
+   - Periodic goal status print: `Current Goal: <crop> for Unlock: <unlock>` (or `... Unlocks Complete!`)
    - Final harvest + position reset
+
+**`plant_decision()` priority** (config `FOCUS_CROP` overrides everything):
+   1. **Energy floor** — if `power < MIN_POWER_STOCK`, farm Power (sunflowers), guarded by a carrot buffer.
+   2. **Unlock steering** — `get_next_unlock()` finds the next non-maxed unlock and the single cost resource it's most short of (the bottleneck); the bot farms *only* that resource until the unlock is affordable, then `auto_unlocks` buys it and the bottleneck shifts. Each resource builds its own prerequisite first: Bone→snake (cactus buffer), Gold→maze (or pumpkins to regenerate Weird_Substance), crops→`check_stock`. No throttling/balancing while unlocks remain.
+   3. **Lowest-stock balance** — only once every unlock is maxed: farm whichever of Hay/Wood/Carrot/Pumpkin/Cactus/Bones/Gold is lowest (Bones throttled by `BONES_LOOP_INTERVAL`; Gold only with enough Weird_Substance).
 
 ### Key design constraints
 
@@ -74,9 +79,9 @@ This is a farming automation bot for a game. The game injects its own API at run
 - **Carrot** — harvest and replant on soil
 - **Pumpkin** — water → plant → fertilize (or `do_a_flip()` if no fertilizer) → wait → harvest
 - **Cactus** — phase state machine in `farm_cactus()`; see Scripting gotchas below
-- **Maze** — triggered when **Gold** is the lowest tracked resource (and enough `Items.Weird_Substance` is stockpiled for one run); returned as `Items.Gold` from `plant_decision()` and dispatched to `farm_maze()`, which calls `clear()`, grows a maze from a bush, left-hand wall-follows to `Entities.Treasure` (step-counter safety valve: `world_size² × 4` max steps), harvests if treasure was reached, then calls `clear()` again to reset the farm; single-use only (no reuse stacking)
+- **Maze** — runs when **Gold** is the resource being farmed (Gold is the next unlock's bottleneck, or the lowest stock once all unlocks are maxed) and enough `Items.Weird_Substance` is stockpiled for one run; returned as `Items.Gold` from `plant_decision()` and dispatched to `farm_maze()`, which calls `clear()`, grows a maze from a bush, left-hand wall-follows to `Entities.Treasure` (step-counter safety valve: `world_size² × 4` max steps), harvests if treasure was reached, then calls `clear()` again to reset the farm; single-use only (no reuse stacking)
 - **Sunflower** — `farm_sunflower()` fills the entire grid with sunflowers; Pass 1 scans for the max-petal cell, then harvests it first for the 8× power bonus (requires ≥10 sunflowers on the farm, i.e. world_size ≥ 4); Pass 2 harvests all remaining ready cells and replants
-- **Bones** — `farm_bones()` wears `Hats.Dinosaur_Hat` and runs a snake (Hamiltonian boustrophedon, bottom row reserved as a return lane) eating apples (64 Cactus each) to grow a tail, then switches back to `Hats.Pumpkin_Hat` to cash out `tail_length²` `Items.Bone`. Single-drone, **even world size only**; throttled lowest-stock rotation (`BONES_LOOP_INTERVAL`, `MIN_CACTUS_FOR_BONES`). NOTE: cannot be exercised by the `simulate()` bench harness — `change_hat` errors in-sim — so bones is validated **live** (`bench_main` skips it)
+- **Bones** — `farm_bones()` wears `Hats.Dinosaur_Hat` and runs a snake (Hamiltonian boustrophedon, bottom row reserved as a return lane) eating apples (64 Cactus each) to grow a tail, then switches back to `Hats.Pumpkin_Hat` to cash out `tail_length²` `Items.Bone`. Single-drone, **even world size only**. Runs when **Bones** is the resource being farmed — i.e. an unlock's bottleneck (then it runs every loop, unthrottled, until that unlock is affordable), or the lowest stock once all unlocks are maxed (then throttled by `BONES_LOOP_INTERVAL`); always gated by a `MIN_CACTUS_FOR_BONES` buffer since apples cost Cactus. NOTE: cannot be exercised by the `simulate()` bench harness — `change_hat` errors in-sim — so bones is validated **live** (`bench_main` skips it)
 
 ### Items reference
 
@@ -96,7 +101,7 @@ This is a farming automation bot for a game. The game injects its own API at run
 
 ### Unlocks reference
 
-Payment resources match `auto_unlocks()` and `get_next_unlock_goal()`. Tier labels indicate gameplay tier, not necessarily the payment currency.
+`auto_unlocks()` buys any unlock whose full `get_cost()` is affordable, and `get_next_unlock()` reports the next one being worked toward (and its bottleneck resource) — both read the live `get_cost()`, so the payment-currency column below is informational only. Tier labels indicate gameplay tier, not necessarily the payment currency.
 
 | Unlock | Paid with | What it enables |
 |---|---|---|
