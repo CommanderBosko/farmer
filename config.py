@@ -64,12 +64,6 @@ BONES_LOOP_INTERVAL = 10
 # single-drone field takeover (~190 laps) but rare (throttled). Higher = more bones.
 BONES_TARGET_TAIL = 900
 
-# Weird_Substance threshold for triggering maze farming. The bot will run a
-# maze (clearing the current farm) only when this much WS is stockpiled.
-# Maze cost = world_size * 2^(maze_level-1), so 500 comfortably covers any
-# level. Lower this for more frequent maze runs; raise it to prioritize crops.
-MIN_WEIRD_SUBSTANCE_STOCK = 500
-
 # Gold target. When > 0, the bot will prioritize maze runs (as soon as one
 # maze worth of WS is available) until gold reaches this amount. Set this
 # before manually purchasing gold-cost upgrades (Top Hat, Megafarm, Debug_2,

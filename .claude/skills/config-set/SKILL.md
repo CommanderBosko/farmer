@@ -1,6 +1,6 @@
 ---
 name: config-set
-description: Update a config.py knob for the farmer bot. Use when the user wants to change FOCUS_CROP, MIN_GOLD_STOCK, MIN_POWER_STOCK, MIN_PREREQ_STOCK, MIN_WEIRD_SUBSTANCE_STOCK, PRINT_GOAL_INTERVAL, or USE_MULTIPLE_DRONES.
+description: Update a config.py knob for the farmer bot. Use when the user wants to change FOCUS_CROP, MIN_GOLD_STOCK, MIN_POWER_STOCK, MIN_PREREQ_STOCK, PRINT_GOAL_INTERVAL, or USE_MULTIPLE_DRONES.
 ---
 
 # Config Set Skill
@@ -15,7 +15,6 @@ Update a single knob in `/home/bosko/projects/farmer/config.py`.
 | `PRINT_GOAL_INTERVAL` | int | 0 or None disables printing |
 | `MIN_PREREQ_STOCK` | int | Must be positive |
 | `MIN_POWER_STOCK` | int | Must be positive |
-| `MIN_WEIRD_SUBSTANCE_STOCK` | int | Must be positive |
 | `MIN_GOLD_STOCK` | int | 0 disables gold grinding |
 | `USE_MULTIPLE_DRONES` | bool | `True` or `False` |
 

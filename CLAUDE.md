@@ -61,7 +61,6 @@ This is a farming automation bot for a game. The game injects its own API at run
 | `PRINT_GOAL_INTERVAL` | Print status every N outer loops; `0`/`None` disables |
 | `MIN_PREREQ_STOCK` | Minimum prerequisite resource to hold before advancing to a higher-tier crop (default 100 000) |
 | `MIN_POWER_STOCK` | Replenish sunflowers when power drops below this; power doubles drone speed (default 500) |
-| `MIN_WEIRD_SUBSTANCE_STOCK` | Run a maze when `Items.Weird_Substance` reaches this level; lower = more frequent runs (default 500) |
 | `MIN_GOLD_STOCK` | When `> 0`, prioritize maze runs until this gold target is reached; set before manually buying gold-cost upgrades, reset to `0` when done (default 0) |
 | `NUM_DRONES` | Number of parallel drones (1–32); capped to `world_size`; Cactus/Maze/Sunflower/Bones always run single-drone; requires Megafarm upgrade (default `32`) |
 | `MIN_CACTUS_FOR_BONES` | Cactus reserve required before a bones run (apples cost 64 Cactus each); default 100 000 |
@@ -75,7 +74,7 @@ This is a farming automation bot for a game. The game injects its own API at run
 - **Carrot** — harvest and replant on soil
 - **Pumpkin** — water → plant → fertilize (or `do_a_flip()` if no fertilizer) → wait → harvest
 - **Cactus** — phase state machine in `farm_cactus()`; see Scripting gotchas below
-- **Maze** — triggered when `weird_substance >= MIN_WEIRD_SUBSTANCE_STOCK` (not by lowest-stock logic); `farm_maze()` calls `clear()`, grows a maze from a bush, left-hand wall-follows to `Entities.Treasure` (step-counter safety valve: `world_size² × 4` max steps), harvests if treasure was reached, then calls `clear()` again to reset the farm; single-use only (no reuse stacking)
+- **Maze** — triggered when **Gold** is the lowest tracked resource (and enough `Items.Weird_Substance` is stockpiled for one run); returned as `Items.Gold` from `plant_decision()` and dispatched to `farm_maze()`, which calls `clear()`, grows a maze from a bush, left-hand wall-follows to `Entities.Treasure` (step-counter safety valve: `world_size² × 4` max steps), harvests if treasure was reached, then calls `clear()` again to reset the farm; single-use only (no reuse stacking)
 - **Sunflower** — `farm_sunflower()` fills the entire grid with sunflowers; Pass 1 scans for the max-petal cell, then harvests it first for the 8× power bonus (requires ≥10 sunflowers on the farm, i.e. world_size ≥ 4); Pass 2 harvests all remaining ready cells and replants
 - **Bones** — `farm_bones()` wears `Hats.Dinosaur_Hat` and runs a snake (Hamiltonian boustrophedon, bottom row reserved as a return lane) eating apples (64 Cactus each) to grow a tail, then switches back to `Hats.Pumpkin_Hat` to cash out `tail_length²` `Items.Bone`. Single-drone, **even world size only**; throttled lowest-stock rotation (`BONES_LOOP_INTERVAL`, `MIN_CACTUS_FOR_BONES`). NOTE: cannot be exercised by the `simulate()` bench harness — `change_hat` errors in-sim — so bones is validated **live** (`bench_main` skips it)
 

@@ -23,8 +23,8 @@ is cleared (Bones farming works and Polyculture Lvl 2 is unlocked), and a
 - **Sunflower power farming**: Triggered when `Items.Power` drops below
   `MIN_POWER_STOCK`. Power doubles drone movement speed automatically. Parallelized
   across N drones via `farm_sunflower_strip()`.
-- **Maze farming**: Triggered when `Items.Weird_Substance` reaches
-  `MIN_WEIRD_SUBSTANCE_STOCK`. Left-hand wall-following with a step-counter safety
+- **Maze farming**: Triggered when Gold is the lowest resource (and enough
+  `Items.Weird_Substance` is stockpiled for a run). Left-hand wall-following with a step-counter safety
   valve; harvests `Items.Gold` from the treasure chest. Runs single-drone (sequential
   wall-following cannot be split).
 - **Gold grinding mode**: Set `MIN_GOLD_STOCK > 0` to prioritize maze runs until a
@@ -82,7 +82,6 @@ Edit `config.py` before running:
 | `PRINT_GOAL_INTERVAL` | `1` | Print status every N outer loops. `0`/`None` = silent. |
 | `MIN_PREREQ_STOCK` | `500 000` | Minimum previous-tier stock before advancing to the next crop. |
 | `MIN_POWER_STOCK` | `5 000` | Switch to sunflower farming when power drops below this. |
-| `MIN_WEIRD_SUBSTANCE_STOCK` | `500` | Run a maze when WS reaches this level. |
 | `MIN_GOLD_STOCK` | `0` | Grind mazes until this much gold is accumulated (0 = inactive). |
 | `MIN_WATER_LEVEL` | `0.5` | Pre-plant water threshold for soil crops (carrot, wood, sunflower). `0.0` disables. |
 | `NUM_DRONES` | `32` | Parallel drones for farming. Capped to `world_size`. Maze/Bones always single-drone. |
