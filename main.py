@@ -117,26 +117,32 @@ def get_amount(item):
 		return bones
 	return 0
 
-def get_next_unlock_name():
+def get_next_unlock():
 	# The unlock we're progressing toward = the non-maxed unlock closest to affordable
-	# (smallest bottleneck shortfall across its cost items). Iterates every Unlocks
-	# entry so it handles multi-resource and bones-cost unlocks correctly. Returns a
-	# readable name (the "Unlocks." prefix stripped), or None when every unlock is maxed.
+	# (smallest bottleneck shortfall across its cost items). Iterates every Unlocks entry
+	# so it handles multi-resource and bones-cost unlocks correctly. Returns
+	# (name, bottleneck_item): name is the unlock with the "Unlocks." prefix stripped,
+	# bottleneck_item is the cost item we're most short of (the thing to farm next for it).
+	# Returns (None, None) when every unlock is maxed.
 	best_name = None
+	best_item = None
 	best_short = 0
 	for u in Unlocks:
 		cost = get_cost(u)
 		if not cost:
 			continue  # maxed: no next level
 		short = 0
+		short_item = None
 		for item in cost:
 			gap = cost[item] - get_amount(item)
 			if gap > short:
 				short = gap
+				short_item = item
 		if best_name == None or short < best_short:
 			best_short = short
 			best_name = str(u)[8:]  # drop the "Unlocks." prefix
-	return best_name
+			best_item = short_item
+	return best_name, best_item
 
 def plant_decision():
 	# Helper to check prerequisite stock
@@ -166,6 +172,31 @@ def plant_decision():
 		n_substance = get_world_size() * 2 ** (num_unlocked(Unlocks.Mazes) - 1)
 		if weird_substance >= n_substance:
 			return Items.Gold
+
+	# Steer toward the next unlock: farm the resource it's most short of, so progress is
+	# aimed at the upgrade we're chasing (matches the "for Unlock:" status line). Each
+	# branch falls through to the lowest-stock balance below when the needed resource
+	# can't be farmed this loop, so the bot still does something useful:
+	#  - Bones: build the cactus buffer first if low; else run the snake when the throttle
+	#    has elapsed; while throttled, fall through to the balance.
+	#  - Gold: run a maze only if enough weird substance; else fall through.
+	#  - Any crop: farm it through check_stock (so a prerequisite is built first).
+	# When all unlocks are maxed, get_next_unlock() returns (None, None) -> pure balance.
+	unlock_name, target_item = get_next_unlock()
+	if target_item != None:
+		if target_item == Items.Bone:
+			if num_unlocked(Unlocks.Dinosaurs) > 0:
+				if cactus < config.MIN_CACTUS_FOR_BONES:
+					return check_stock(Items.Cactus)
+				if loop_counter - last_bones_loop >= config.BONES_LOOP_INTERVAL:
+					return Items.Bone
+		elif target_item == Items.Gold:
+			if num_unlocked(Unlocks.Mazes) > 0:
+				n_substance = get_world_size() * 2 ** (num_unlocked(Unlocks.Mazes) - 1)
+				if weird_substance >= n_substance:
+					return Items.Gold
+		else:
+			return check_stock(target_item)
 
 	# Steady state: farm whichever resource is lowest. Bones and Gold only enter the
 	# race when they're actually farmable right now (bones: throttled + cactus buffer;
@@ -725,7 +756,7 @@ while True:
 	# Print goal occasionally based on config
 	if config.PRINT_GOAL_INTERVAL and loop_counter % config.PRINT_GOAL_INTERVAL == 0:
 		# Get the unlock we're working toward for printing
-		unlock_name = get_next_unlock_name()
+		unlock_name, unlock_item = get_next_unlock()
 
 		if crop_choice in ITEM_NAMES:
 			current_goal_name = ITEM_NAMES[crop_choice]
