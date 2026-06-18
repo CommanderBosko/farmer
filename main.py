@@ -173,13 +173,14 @@ def plant_decision():
 		if weird_substance >= n_substance:
 			return Items.Gold
 
-	# Steer toward the next unlock: farm the resource it's most short of, so progress is
-	# aimed at the upgrade we're chasing (matches the "for Unlock:" status line). Each
-	# branch falls through to the lowest-stock balance below when the needed resource
-	# can't be farmed this loop, so the bot still does something useful:
-	#  - Bones: build the cactus buffer first if low; else run the snake when the throttle
-	#    has elapsed; while throttled, fall through to the balance.
-	#  - Gold: run a maze only if enough weird substance; else fall through.
+	# Steer toward the next unlock: farm ONLY the resource it's most short of, so all
+	# effort goes to the upgrade we're chasing (matches the "for Unlock:" status line).
+	# No throttling and no balancing while unlocks remain - balancing is the post-unlock
+	# fallback only. The single gate is each resource's real prerequisite:
+	#  - Bones: build the cactus buffer first if low (apples cost cactus); else run the
+	#    snake every loop (no throttle) until the unlock is affordable.
+	#  - Gold: run a maze if there's enough weird substance; otherwise fall through (the
+	#    balance / pumpkin fertilizing regenerates substance).
 	#  - Any crop: farm it through check_stock (so a prerequisite is built first).
 	# When all unlocks are maxed, get_next_unlock() returns (None, None) -> pure balance.
 	unlock_name, target_item = get_next_unlock()
@@ -188,8 +189,7 @@ def plant_decision():
 			if num_unlocked(Unlocks.Dinosaurs) > 0:
 				if cactus < config.MIN_CACTUS_FOR_BONES:
 					return check_stock(Items.Cactus)
-				if loop_counter - last_bones_loop >= config.BONES_LOOP_INTERVAL:
-					return Items.Bone
+				return Items.Bone
 		elif target_item == Items.Gold:
 			if num_unlocked(Unlocks.Mazes) > 0:
 				n_substance = get_world_size() * 2 ** (num_unlocked(Unlocks.Mazes) - 1)
