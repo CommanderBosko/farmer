@@ -136,7 +136,7 @@ farmer/
 | `farm_sunflower()` | N-drone dispatcher: spawns strips, waits for all drones |
 | `farm_maze()` | Wall-following maze solver; harvests gold from treasure chest |
 | `farm_bones()` | Dinosaur-hat snake; grows a tail eating apples, unequips for `tail²` Bones |
-| `get_next_unlock_goal()` | Returns the next unlock the bot should save toward |
+| `get_next_unlock()` | Returns the next unlock being worked toward and its bottleneck resource |
 | `goto_sw()` | Navigates drone to origin (x=0, y=0) |
 
 ---
