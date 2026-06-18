@@ -1,6 +1,6 @@
 ---
 name: output-watcher
-description: Arm a background watcher on the game's output.txt that auto-detects when an in-game run (probe or bench) completes and feeds the result back, so you never wait for the user to say "done". Use when the user says "output-watcher", "watch output", "set up a watcher", "create the watcher", "auto-watch output.txt", "watch for the run to finish", or "don't wait for me to say done".
+description: Arm a background watcher on the game's output.txt that auto-detects when an in-game run (probe or bench) completes and feeds the result back, so you never wait for the user to say "done". Use when the user says "output-watcher", "watch output", "set up a watcher", "create the watcher", "auto-watch output.txt", "watch for the run to finish", "don't wait for me to say done", "check the output", "check output.txt", "check the output file", or "read the output" — any request to look at output.txt should arm the watcher rather than do a one-off read.
 ---
 
 # Output Watcher
