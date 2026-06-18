@@ -36,6 +36,13 @@ MIN_CARROT_FOR_SUNFLOWER = 2000
 # Raise to protect more carrots (slower pumpkin growth); lower for more pumpkins.
 MIN_CARROT_FOR_PUMPKIN = 100000
 
+# Max fertilizer applications to spend ripening a single pumpkin tile in place.
+# Each use adds +2s of growth; a handful matures a tile so neighbours finish
+# together and merge into giant pumpkins. Only used WHILE fertilizer is in stock -
+# with no fertilizer the bot does not block-wait at all (the tile grows on its own
+# across passes). Lower = move on sooner; raise = ripen more tiles in place.
+PUMPKIN_MAX_WAIT = 100
+
 # --- Bones / Dinosaur snake farming ---
 # Bones come from wearing Hats.Dinosaur_Hat and growing a snake: eat apples (each
 # costs 64 Cactus) to grow a tail, then unequip to cash out length**2 Items.Bone.

@@ -348,37 +348,40 @@ def farm(crop_choice, x, y):
 			plant(Entities.Carrot)
 
 	elif crop_choice == Items.Pumpkin:
+		# Collect anything that ripened since the last pass.
 		if can_harvest():
 			harvest()
 		if get_ground_type() != Grounds.Soil:
 			till()
+		# Sweep: an empty plot AND a dead pumpkin both fail this check (a dead pumpkin
+		# is Entities.Dead_Pumpkin, not Entities.Pumpkin). plant() auto-replaces a dead
+		# or ungrown pumpkin, so this single branch both fills empties and clears the
+		# ~20% that die at maturity - every visit, so dead pumpkins can't pile up.
+		# NEVER plant on a living pumpkin: that resets its growth (see pumpkin mega
+		# mechanic). Gated by the carrot reserve - pumpkins cost 256 Carrot each.
 		if get_entity_type() != Entities.Pumpkin:
-			till()
-			if get_ground_type() != Grounds.Soil:
-				till()
-			while get_water() < 1:
+			while get_water() < 1 and num_items(Items.Water) > 0:
 				use_item(Items.Water)
-			# Carrot reserve: pumpkins cost 256 Carrot each; don't plant below the reserve
 			if num_items(Items.Carrot) >= config.MIN_CARROT_FOR_PUMPKIN:
 				plant(Entities.Pumpkin)
-		if get_amount(Items.Fertilizer) > 0:
-			use_item(Items.Fertilizer)
-		else:
-			do_a_flip()
-
-		pumpkin_iter = 0
-		while not can_harvest():
-			if pumpkin_iter >= 100:
-				break
-			if num_items(Items.Carrot) < config.MIN_CARROT_FOR_PUMPKIN:
-				break
-			pumpkin_iter += 1
-			harvest()
-			plant(Entities.Pumpkin)
-			if get_amount(Items.Fertilizer) > 0:
+		# Only block-wait while we HAVE fertilizer: a few +2s uses ripen a tile fast,
+		# so neighbours finish together and merge into giants. With no fertilizer we do
+		# NOT idle here - do_a_flip growth is far too slow, and idling makes the whole
+		# pass crawl so dead pumpkins linger between sweeps. Instead we leave the tile
+		# to grow on its own across passes and harvest/sweep it on a later visit.
+		if num_items(Items.Fertilizer) > 0:
+			pumpkin_iter = 0
+			while not can_harvest():
+				if pumpkin_iter >= config.PUMPKIN_MAX_WAIT:
+					break
+				if num_items(Items.Fertilizer) <= 0:
+					break
+				pumpkin_iter += 1
 				use_item(Items.Fertilizer)
-			else:
-				do_a_flip()
+				# If it died mid-grow, replace it so we don't leave a dead tile.
+				if get_entity_type() != Entities.Pumpkin:
+					if num_items(Items.Carrot) >= config.MIN_CARROT_FOR_PUMPKIN:
+						plant(Entities.Pumpkin)
 
 def goto_sw():
 	while get_pos_y() > 0:
