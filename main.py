@@ -27,6 +27,12 @@ bones = 0
 loop_counter = 0 # New: Global counter for loop iterations
 last_bones_loop = 0 # Loop index of the last bones run (throttle for farm_bones)
 
+# Bone snake state: tail length (= apples eaten) and the current apple position,
+# updated per move by bones_step() so farm_bones() can stop at an exact tail length.
+bone_tail = 0
+bone_apple_x = 0
+bone_apple_y = 0
+
 # Map Items enum to readable names for printing
 ITEM_NAMES = {
 	Items.Hay: "Hay",
@@ -612,41 +618,63 @@ def farm_maze():
 	# Reset farm to a clean farmable state regardless of outcome
 	clear()
 
+def bones_step(direction):
+	# One snake move along the Hamiltonian cycle, counting apples as we go: if the
+	# head lands on the tracked apple it was eaten, so grow the tail and re-measure
+	# the next one. measure() returns the next apple position (one apple at a time).
+	global bone_tail
+	global bone_apple_x
+	global bone_apple_y
+	move(direction)
+	if get_pos_x() == bone_apple_x and get_pos_y() == bone_apple_y:
+		bone_tail += 1
+		bone_apple_x, bone_apple_y = measure()
+
 def farm_bones():
-	# Single-drone snake: wear the Dinosaur hat, sweep the whole field eating
-	# apples (each costs 64 Cactus), then unequip to cash out tail_length**2 as
-	# Items.Bone. Validated live (the bench sim can't equip hats).
+	# Single-drone snake: wear the Dinosaur hat and sweep the field eating apples
+	# (each costs 64 Cactus) until the tail reaches config.BONES_TARGET_TAIL, then
+	# unequip to cash out ~Polyculture_multiplier * tail**2 as Items.Bone (live-
+	# calibrated ~40x: tail 500 -> ~10M bones). Validated live (bench can't equip hats).
 	#
-	# Path = a Hamiltonian cycle with the bottom row (y=0) reserved as a return
-	# lane, so it covers every tile and returns to (0,0); repeating it grows the
-	# snake. Requires an EVEN world size (odd sizes don't close cleanly). Once the
-	# snake fills the field, further move()s fail harmlessly (1 tick each).
+	# Path = a Hamiltonian cycle with the bottom row (y=0) reserved as a return lane,
+	# so it covers every tile and returns to (0,0); repeated laps grow the snake. The
+	# tail trails behind on the cycle, so there is no self-collision until the tail
+	# nearly fills the field (~1024 tiles). Requires an EVEN world size.
+	global bone_tail
+	global bone_apple_x
+	global bone_apple_y
 	n = get_world_size()
 	if n % 2 != 0:
 		return  # odd size: skip (would need set_world_size to make it even)
 	clear()
-	# The snake path below is relative to the origin (0,0). In the main loop the
-	# drone is left mid-field by the previous farm pass, so without this the snake
-	# starts offset, tangles into its own tail, and dies (halting the whole bot).
+	# The snake path is relative to the origin (0,0). In the main loop the drone is
+	# left mid-field by the previous farm pass, so without this the snake starts
+	# offset, tangles into its own tail, and dies (halting the whole bot).
 	goto_sw()
 	change_hat(Hats.Dinosaur_Hat)
+	bone_apple_x, bone_apple_y = measure()
+	bone_tail = 0
+	# Safety valve: cap laps so a counter glitch can never grow the tail into the
+	# collision zone (~380 laps fills the field). Reaching the target takes far fewer
+	# laps (~2.7 apples/lap, so ~185 laps for tail 500); the cap only matters if the
+	# apple count stalls. tail ~2.7*cap stays well under the field at cap=300.
 	lap = 0
-	while lap < config.BONES_LAPS:
+	while bone_tail < config.BONES_TARGET_TAIL and lap < 300:
 		lap += 1
-		move(North)                      # (0,0) -> (0,1): enter the comb
+		bones_step(North)                # (0,0) -> (0,1): enter the comb
 		for x in range(n):
 			if x % 2 == 0:
 				for k in range(n - 2):
-					move(North)
+					bones_step(North)
 			else:
 				for k in range(n - 2):
-					move(South)
+					bones_step(South)
 			if x < n - 1:
-				move(East)
-		move(South)                      # drop to the return lane (y=0)
+				bones_step(East)
+		bones_step(South)                # drop to the return lane (y=0)
 		for k in range(n - 1):
-			move(West)                   # run home along row 0 to (0,0)
-	change_hat(Hats.Pumpkin_Hat)         # unequip -> cash out length**2 bones
+			bones_step(West)             # run home along row 0 to (0,0)
+	change_hat(Hats.Pumpkin_Hat)         # unequip -> cash out tail**2 (* multiplier)
 	clear()                              # leave a clean field for the next crop
 
 # A Sunflower_Seed costs up to 6 Carrots (see GetItemCosts in-game); plant() auto-buys

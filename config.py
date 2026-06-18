@@ -55,13 +55,14 @@ MIN_CACTUS_FOR_BONES = 100000
 # Throttle: run bones at most once per this many outer loops.
 BONES_LOOP_INTERVAL = 10
 
-# How many full-field snake laps per bones run. Tail grows ~linearly at ~15/lap
-# (measured live on 32x32: 8->120, 12->181, 18->266, 40->~615); bones = tail**2.
-# So 40 laps -> tail ~615 -> ~375k bones, vs ~17k at 8 laps. Safe ceiling is the
-# field cycle (~1024 tiles): keep a margin, so ~40-50 laps is the aggressive-but-
-# safe range; near ~64 laps the head risks catching its own tail. A bigger run is
-# more bone-efficient (tail**2) but a longer single-drone field takeover.
-BONES_LAPS = 40
+# Target snake tail length (= apples eaten) per bones run. farm_bones() sweeps the
+# safe Hamiltonian cycle counting apples via measure() and cashes out when the tail
+# hits this. Bones cashed out = ~multiplier * tail**2 (live-calibrated ~40x, likely
+# the Polyculture level), so tail 500 -> ~10M bones. Tail grows ~2.7/lap, so 500
+# takes ~185 full-field laps (~195k moves) - a long single-drone takeover, but rare
+# (throttled). Self-collision only near tail ~1024, so 500 (~49% full) is safe;
+# keep it under ~750 for margin. Higher = quadratically more bones, longer run.
+BONES_TARGET_TAIL = 500
 
 # Weird_Substance threshold for triggering maze farming. The bot will run a
 # maze (clearing the current farm) only when this much WS is stockpiled.
