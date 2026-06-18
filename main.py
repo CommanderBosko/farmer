@@ -7,7 +7,7 @@ FOCUS_CROP_MAP = {
 	"Carrot": Items.Carrot,
 	"Pumpkin": Items.Pumpkin,
 	"Cactus": Items.Cactus,
-	"Maze": Items.Weird_Substance,
+	"Maze": Items.Gold,
 	"Sunflower": Items.Power,
 	"Bones": Items.Bone,
 }
@@ -187,96 +187,77 @@ def plant_decision():
 	if config.FOCUS_CROP and config.FOCUS_CROP in FOCUS_CROP_MAP:
 		return FOCUS_CROP_MAP[config.FOCUS_CROP] # Focus mode bypasses stock checks
 
-	# Power doubles drone speed — replenish before pursuing other goals.
-	# Sunflower seeds are bought with Carrots, so only enter sunflower mode when we
-	# hold enough carrots to sustain it; otherwise fall through and farm carrots first.
-	# Without this guard, draining carrots in sunflower mode deadlocks: no carrots ->
-	# can't plant sunflowers -> no power -> never leaves sunflower mode.
+	# Energy floor (always first): power doubles drone speed, so keep it topped up to
+	# MIN_POWER_STOCK before anything else. Guard with a carrot buffer so sunflower mode
+	# can't deadlock (seeds cost carrots: no carrots -> no sunflowers -> no power).
 	if num_unlocked(Unlocks.Sunflowers) > 0 and power < config.MIN_POWER_STOCK and carrot >= config.MIN_CARROT_FOR_SUNFLOWER:
 		return Items.Power
 
-	# Bones (single-drone snake): farm when bones is the lowest tracked stock,
-	# throttled to once per BONES_LOOP_INTERVAL loops (each run is a long full-farm
-	# takeover), and only with a Cactus buffer since apples cost 64 Cactus each.
-	if num_unlocked(Unlocks.Dinosaurs) > 0 and cactus >= config.MIN_CACTUS_FOR_BONES:
-		if loop_counter - last_bones_loop >= config.BONES_LOOP_INTERVAL:
-			if bones <= hay and bones <= wood and bones <= carrot and bones <= pumpkin and bones <= cactus:
-				return Items.Bone
-
-	# Prioritize maze runs when gold is below the manual-upgrade target
+	# Optional manual gold push: when MIN_GOLD_STOCK is set, prioritize mazes until met.
 	if config.MIN_GOLD_STOCK > 0 and gold < config.MIN_GOLD_STOCK and num_unlocked(Unlocks.Mazes) > 0:
 		n_substance = get_world_size() * 2 ** (num_unlocked(Unlocks.Mazes) - 1)
 		if weird_substance >= n_substance:
-			return Items.Weird_Substance
+			return Items.Gold
 
-	goal_item, unlock_name = get_next_unlock_goal()
-	if goal_item:
-		return check_stock(goal_item) # Check stock for the goal item
+	# Steady state: farm whichever resource is lowest. Bones and Gold only enter the
+	# race when they're actually farmable right now (bones: throttled + cactus buffer;
+	# gold: enough weird substance for one maze run). Crops still go through check_stock
+	# so a lowest crop can't be planted below its prerequisite (e.g. pumpkin vs carrot).
+	amounts = []
+	actions = []
+	amounts.append(hay)
+	actions.append(Items.Hay)
+	amounts.append(wood)
+	actions.append(Items.Wood)
+	amounts.append(carrot)
+	actions.append(Items.Carrot)
+	amounts.append(pumpkin)
+	actions.append(Items.Pumpkin)
+	amounts.append(cactus)
+	actions.append(Items.Cactus)
+	if num_unlocked(Unlocks.Dinosaurs) > 0 and cactus >= config.MIN_CACTUS_FOR_BONES and loop_counter - last_bones_loop >= config.BONES_LOOP_INTERVAL:
+		amounts.append(bones)
+		actions.append(Items.Bone)
+	if num_unlocked(Unlocks.Mazes) > 0:
+		n_substance = get_world_size() * 2 ** (num_unlocked(Unlocks.Mazes) - 1)
+		if weird_substance >= n_substance:
+			amounts.append(gold)
+			actions.append(Items.Gold)
 
-	# Run a maze when we've stockpiled enough weird substance
-	if num_unlocked(Unlocks.Mazes) > 0 and weird_substance >= config.MIN_WEIRD_SUBSTANCE_STOCK:
-		return Items.Weird_Substance
+	best = 0
+	i = 1
+	while i < len(amounts):
+		if amounts[i] < amounts[best]:
+			best = i
+		i += 1
+	choice = actions[best]
 
-	# Fallback logic: plant what you have the least of, but check prerequisites.
-	# Branches are ordered by ascending priority (Hay lowest, Cactus highest).
-	# Each branch uses <= so tied crops fall through to the higher-priority branch,
-	# meaning the last matching branch wins: Cactus > Pumpkin > Carrot > Wood > Hay.
-	_hay = get_amount(Items.Hay)
-	_wood = get_amount(Items.Wood)
-	_carrot = get_amount(Items.Carrot)
-	_pumpkin = get_amount(Items.Pumpkin)
-	_cactus = get_amount(Items.Cactus)
-	result = Items.Hay
-	if _wood <= _hay and _wood <= _carrot and _wood <= _pumpkin and _wood <= _cactus:
-		result = check_stock(Items.Wood)
-	if _carrot <= _hay and _carrot <= _wood and _carrot <= _pumpkin and _carrot <= _cactus:
-		result = check_stock(Items.Carrot)
-	if _pumpkin <= _hay and _pumpkin <= _wood and _pumpkin <= _carrot and _pumpkin <= _cactus:
-		result = check_stock(Items.Pumpkin)
-	if _cactus <= _hay and _cactus <= _wood and _cactus <= _carrot and _cactus <= _pumpkin:
-		result = check_stock(Items.Cactus)
-	return result
+	if choice == Items.Bone:
+		return Items.Bone
+	if choice == Items.Gold:
+		return Items.Gold
+	return check_stock(choice)
+
+def can_afford(cost):
+	# True only if the cost dict is non-empty and we hold enough of EVERY item in it.
+	# Handles multi-resource costs (e.g. Top_Hat) and any payment item, unlike the old
+	# single-required_item check that silently skipped bones-cost unlocks (Polyculture).
+	if not cost:
+		return False
+	for item in cost:
+		if get_amount(item) < cost[item]:
+			return False
+	return True
 
 def auto_unlocks():
-	unlocks = [
-		# Hay-cost unlocks (cheapest first)
-		(Unlocks.Loops, Items.Hay, "Loops"),
-		(Unlocks.Plant, Items.Hay, "Plant"),
-		(Unlocks.Hats, Items.Hay, "Hats"),
-		(Unlocks.Speed, Items.Hay, "Speed"),
-		(Unlocks.Senses, Items.Hay, "Senses"),
-		# Wood-cost unlocks
-		(Unlocks.Grass, Items.Wood, "Grass"),
-		(Unlocks.Carrots, Items.Wood, "Carrots"),
-		(Unlocks.Fertilizer, Items.Wood, "Fertilizer"),
-		(Unlocks.Watering, Items.Wood, "Watering"),
-		# Carrot-cost unlocks
-		(Unlocks.Variables, Items.Carrot, "Variables"),
-		(Unlocks.Functions, Items.Carrot, "Functions"),
-		(Unlocks.Import, Items.Carrot, "Import"),
-		(Unlocks.Lists, Items.Carrot, "Lists"),
-		(Unlocks.Sunflowers, Items.Carrot, "Sunflowers"),
-		(Unlocks.Trees, Items.Hay, "Trees"),
-		(Unlocks.Pumpkins, Items.Carrot, "Pumpkins"),
-		# Pumpkin-cost unlocks
-		(Unlocks.Utilities, Items.Pumpkin, "Utilities"),
-		(Unlocks.Timing, Items.Pumpkin, "Timing"),
-		(Unlocks.Costs, Items.Pumpkin, "Costs"),
-		(Unlocks.Dictionaries, Items.Pumpkin, "Dictionaries"),
-		(Unlocks.Polyculture, Items.Pumpkin, "Polyculture"),
-		(Unlocks.Auto_Unlock, Items.Pumpkin, "Auto_Unlock"),
-		(Unlocks.Expand, Items.Pumpkin, "Expand"),
-		# Cactus-cost unlocks
-		(Unlocks.Cactus, Items.Pumpkin, "Cactus"),
-		(Unlocks.Dinosaurs, Items.Cactus, "Dinosaurs"),
-		(Unlocks.Mazes, Items.Cactus, "Mazes"),
-	]
-
-	for unlock_item, required_item, name in unlocks:
-		cost = get_cost(unlock_item)
-		if cost and required_item in cost and get_amount(required_item) >= cost[required_item]:
-			unlock(unlock_item)
-			print("Unlocked the next level of " + name)
+	# Buy any unlock we can fully afford. get_cost() returns the next level's cost (an
+	# empty dict once maxed), so this both closes the Polyculture/Top_Hat/Remains gap and
+	# keeps repeatable unlocks leveling. update_amounts() resyncs after each purchase.
+	for u in Unlocks:
+		cost = get_cost(u)
+		if can_afford(cost):
+			unlock(u)
+			print("Unlocked " + str(u))
 			update_amounts()
 
 def update_amounts():
@@ -797,7 +778,7 @@ while True:
 
 	if crop_choice == Items.Cactus:
 		farm_cactus()
-	elif crop_choice == Items.Weird_Substance:
+	elif crop_choice == Items.Gold:
 		farm_maze()
 	elif crop_choice == Items.Power:
 		farm_sunflower()
