@@ -179,8 +179,8 @@ def plant_decision():
 	# fallback only. The single gate is each resource's real prerequisite:
 	#  - Bones: build the cactus buffer first if low (apples cost cactus); else run the
 	#    snake every loop (no throttle) until the unlock is affordable.
-	#  - Gold: run a maze if there's enough weird substance; otherwise fall through (the
-	#    balance / pumpkin fertilizing regenerates substance).
+	#  - Gold: run a maze if there's enough weird substance; otherwise farm pumpkins
+	#    (fertilizing them regenerates substance) while fertilizer lasts.
 	#  - Any crop: farm it through check_stock (so a prerequisite is built first).
 	# When all unlocks are maxed, get_next_unlock() returns (None, None) -> pure balance.
 	unlock_name, target_item = get_next_unlock()
@@ -195,6 +195,12 @@ def plant_decision():
 				n_substance = get_world_size() * 2 ** (num_unlocked(Unlocks.Mazes) - 1)
 				if weird_substance >= n_substance:
 					return Items.Gold
+				# Not enough substance for a maze. Weird_Substance is a side effect of
+				# fertilizing, so farm pumpkins to regenerate it - but only while we hold
+				# fertilizer (no auto-trade exists, so with 0 fertilizer this can't make
+				# more; fall through to the balance then rather than deadlock on pumpkins).
+				if fertilizer > 0:
+					return check_stock(Items.Pumpkin)
 		else:
 			return check_stock(target_item)
 
