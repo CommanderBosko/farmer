@@ -625,6 +625,10 @@ def farm_bones():
 	if n % 2 != 0:
 		return  # odd size: skip (would need set_world_size to make it even)
 	clear()
+	# The snake path below is relative to the origin (0,0). In the main loop the
+	# drone is left mid-field by the previous farm pass, so without this the snake
+	# starts offset, tangles into its own tail, and dies (halting the whole bot).
+	goto_sw()
 	change_hat(Hats.Dinosaur_Hat)
 	lap = 0
 	while lap < config.BONES_LAPS:
