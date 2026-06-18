@@ -66,7 +66,7 @@ This is a farming automation bot for a game. The game injects its own API at run
 | `NUM_DRONES` | Number of parallel drones (1–32); capped to `world_size`; Cactus/Maze/Sunflower/Bones always run single-drone; requires Megafarm upgrade (default `32`) |
 | `MIN_CACTUS_FOR_BONES` | Cactus reserve required before a bones run (apples cost 64 Cactus each); default 100 000 |
 | `BONES_LOOP_INTERVAL` | Throttle: run bones at most once per this many outer loops (default 10) |
-| `BONES_TARGET_TAIL` | Target snake tail length (= apples eaten) per bones run; `farm_bones()` counts apples via `measure()` on the safe cycle and cashes out at this length; bones ≈ ~40×·`tail²` (≈10M at 500); ~2.7 apples/lap so 500 ≈ 185 laps; safe under tail ~750 (collision near ~1024) (default 500) |
+| `BONES_TARGET_TAIL` | Target snake tail length (= apples eaten) per bones run; `farm_bones()` counts apples via `measure()` on the safe cycle and `bones_step()` cashes out at *exactly* this length; bones ≈ ~40×·`tail²` (≈32M at 900); self-collision is live-confirmed at tail ~1023 (the 1024-tile field), so keep under ~950 — a collision halts the whole bot (default 900) |
 
 ### Crop farming strategies (inside `farm()`)
 

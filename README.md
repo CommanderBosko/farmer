@@ -89,7 +89,7 @@ Edit `config.py` before running:
 | `MIN_CARROT_FOR_PUMPKIN` | `100 000` | Carrot reserve the pumpkin path won't dip below (pumpkins cost 256 Carrot each). |
 | `MIN_CACTUS_FOR_BONES` | `100 000` | Cactus reserve required before a bones run (apples cost 64 Cactus each). |
 | `BONES_LOOP_INTERVAL` | `10` | Run bones at most once per this many outer loops. |
-| `BONES_TARGET_TAIL` | `500` | Target snake tail length (apples eaten) per bones run; bones ≈ ~40×·tail² (≈10M at 500). |
+| `BONES_TARGET_TAIL` | `900` | Target snake tail length (apples eaten) per bones run; bones ≈ ~40×·tail² (≈32M at 900). |
 
 `FOCUS_CROP` bypasses all prerequisite checks — manually pre-stock required
 resources before enabling it.

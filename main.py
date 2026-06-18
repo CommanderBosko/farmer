@@ -625,6 +625,12 @@ def bones_step(direction):
 	global bone_tail
 	global bone_apple_x
 	global bone_apple_y
+	# Precise stop: once the target tail is reached, stop moving so the rest of the
+	# lap is no-ops and we cash out at EXACTLY the target. Without this the per-lap
+	# target check overshoots by a whole lap (~40+ apples near a full board), which
+	# can blow past the ~1023 self-collision point and kill the bot.
+	if bone_tail >= config.BONES_TARGET_TAIL:
+		return
 	move(direction)
 	if get_pos_x() == bone_apple_x and get_pos_y() == bone_apple_y:
 		bone_tail += 1
