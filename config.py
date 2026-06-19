@@ -37,7 +37,7 @@ COMPANION_CHAIN = False
 # {Hay,Wood,Carrot} (i.e. Top_Hat) it uses the mixed chain; if exactly 1, the targeted
 # triplet; once all unlocks are maxed, the chain. Default off — opt in after a live soak.
 # (Bench always farms monoculture, so companion yield is validated LIVE, like bones.)
-COMPANION_AUTO = False
+COMPANION_AUTO = True
 
 # Minimum Polyculture level (num_unlocked(Unlocks.Polyculture)) at which COMPANION_AUTO
 # kicks in. Multiplier = 5 * 2**level (level 0 = x5 ... level 5 = x160). Live data: at
