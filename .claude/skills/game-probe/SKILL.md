@@ -65,3 +65,14 @@ latest run is there).
   **expected** — they're game-injected, not real errors.
 - `quick_print` output lands in `output.txt`; `print` writes in the air above the
   drone (slower). Prefer `quick_print` for probes.
+- **`probe.py` is standalone — it CANNOT call `main.py`'s functions.** Calling a main
+  helper (e.g. `goto_sw()`) errors with `"<name> has never been defined. It does appear
+  to be defined in the file main..."`. Each probe must define every helper it needs
+  inline (copy the few lines), or avoid them — operate on the current tile and use only
+  game-injected APIs (`move`, `get_pos_x/y`, `harvest`, `till`, ...).
+- **`plant()` silently no-ops on an occupied tile** — so a probe that means to plant a
+  fresh test plant must FULLY CLEAR the tile first (`harvest()` then `till()`), not just
+  ensure the ground type. A guard like `if get_ground_type() != Grounds.Soil: till()`
+  does nothing when a leftover plant already sits on soil, so `plant()` fails and you
+  read the OLD plant's state as if it were the new one (cost me a false "carrot returns
+  None"). Confirm with `get_entity_type()` after planting before trusting the reading.
