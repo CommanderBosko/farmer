@@ -10,10 +10,14 @@ treasure runs, Sunflower power farming, and Gold accumulation.
 Active development. The bot is **unlock-driven**: `plant_decision()` runs an Energy
 floor, then steers all effort to whatever resource the next upgrade needs (any
 resource, dynamically), and only falls back to lowest-stock balancing once the tech
-tree is fully maxed. Crop progression, Bones farming, and the decision core were
-reworked and are live-validated; a `simulate()`-based harness guards against
-resource-starvation regressions. Three unlocks remain (Polyculture, The_Farmers_Remains,
-Top_Hat) and the bot is grinding toward them automatically.
+tree is fully maxed. It runs **32-drone monoculture** — the fast path. A `simulate()`-based
+harness guards against resource-starvation regressions. Steering is now toward the final
+**Top_Hat** unlock (crop costs met; remaining bottleneck is Cactus and Gold).
+
+A full Polyculture **companion-farming** feature (`get_companion()`) was built this
+session but **measured ~19× slower** than 32-drone monoculture (single-drone can't beat
+32× parallelism even at the ×160 multiplier), so it ships **default-OFF** — kept for the
+verified mechanic and a possible future multi-drone rebuild.
 
 ---
 
@@ -118,7 +122,7 @@ farmer/
 ├── original-main.py  — Backup of the pre-refactor version (reference only)
 ├── CLAUDE.md         — AI coding assistant instructions and full API reference
 ├── docs/             — simulate-brief.md (harness design brief)
-├── .claude/skills/   — Project skills: bench, game-probe, config-set, farm-status, syntax-check
+├── .claude/skills/   — 13 project skills (bench, game-probe, throughput-ab, ship-change, …)
 ├── session-summary.md — Running log of development sessions
 └── project-state.md  — Current project snapshot and next steps
 ```
@@ -160,6 +164,20 @@ will not start and the game gives no error message.
 ---
 
 ## Recent Changes
+
+**2026-06-19 — Polyculture companion farming: built, measured ~19× slower, shelved**
+
+- Verified the `get_companion()` mechanic live (returns `(type,(x,y))`, absolute +
+  wrapping coords, stable per plant, ×160 multiplier; only Grass/Bush/Tree/Carrot
+  participate). Saved to project memory.
+- Built companion farming in three stages, all default-OFF behind `config.COMPANION_*`:
+  `farm_companion()` (triplet, single-crop), `farm_companion_chain()` (chain-random,
+  mixed Hay+Wood+Carrot), and cost-driven auto-routing (`COMPANION_AUTO`).
+- A timed live A/B settled it: single-drone companion ≈ 0.24M wood/sec vs 32-drone
+  monoculture ≈ 4.47M wood/sec — **monoculture ~19× faster**. Reverted to monoculture
+  (the ×160 per-harvest gain can't overcome 32× drone parallelism).
+- Added the `throughput-ab` skill (measure resources/sec to A/B strategies); hardened
+  `output-watcher` and `game-probe` with stale-content / probe-isolation gotchas.
 
 **2026-06-18 — Pumpkin/Bones fixes, unlock-steering rework, skill toolkit**
 
@@ -214,37 +232,19 @@ will not start and the game gives no error message.
 - Added `MIN_WATER_LEVEL = 0.5` to `config.py` and corresponding watering logic to
   carrot, wood, and sunflower branches. Pumpkin's full-water-to-1.0 loop is unchanged.
 
-**2026-05-31 — Sunflower parallelization and prerequisite buffer increase**
-
-- Parallelized sunflower farming: added `farm_sunflower_strip(start_x, end_x)` and
-  rewrote `farm_sunflower()` as an N-drone dispatcher (same column-slice pattern as
-  cactus and the standard grid split).
-- Raised `MIN_PREREQ_STOCK` from 200 000 to 500 000 — 32 drones accumulate
-  prerequisites fast enough that the smaller buffer was insufficient.
-- Corrected stale comments in `config.py` and `CLAUDE.md` that listed Sunflower and
-  Cactus as single-drone; only Maze remains single-drone.
-
-**2026-05-28 — Bug-fix session**
-
-- Fixed bot-won't-start: `sorted(..., reverse=True)` in `farm_sunflower()` was a
-  keyword-argument parse error preventing the entire script from loading.
-- Fixed planting guards: all `plant()` calls now pre-check `get_entity_type()`.
-- Fixed prerequisite chain: Carrot now requires both Hay AND Wood; PREREQUISITES
-  dict supports multiple prerequisites per crop (list of tuples).
-- Restored pumpkin broken-tile recovery in the pumpkin wait loop.
-- Scaled to 32-drone parallel farming; added `NUM_DRONES` config knob.
-- Added multi-drone support, maze safety valve, gold grinding, sunflower farming,
-  and comprehensive CLAUDE.md documentation.
+_Older sessions are summarized in `session-summary-archive.md`._
 
 ---
 
 ## Roadmap
 
-- **Companion planting** — apply the Polyculture `get_companion()` yield multiplier
-  (5×→10×→20×), now that Polyculture Lvl 2 is unlocked.
+- **Finish the tech tree**: grind Top_Hat's remaining bottleneck (Cactus, then Gold) to
+  fully max the unlocks, then run steady-state balance indefinitely.
+- **Fertilizer auto-trade** — add `trade(Items.Fertilizer)` so Weird Substance (→ Gold via
+  maze) is self-sustaining; load-bearing now that Gold is a Top_Hat bottleneck.
 - Pumpkin mega-pumpkin reliability (take 2), isolating the carrot/grid plow-thrash.
-- Restore the sunflower max-petal bonus using a keyword-argument-free manual sort.
-- Harness v2: config auto-tuning / A-B strategy comparison against bench `run_time`.
+- Companion farming only becomes worthwhile via a **multi-drone (multi-strip) chain** or a
+  much higher Polyculture level — revisit only if the throughput math flips (use `throughput-ab`).
 
 ---
 

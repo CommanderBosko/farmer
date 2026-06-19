@@ -1,5 +1,32 @@
 _Older entries are in [session-summary-archive.md](session-summary-archive.md)._
 
+## Session: 2026-06-19 — Polyculture companion farming: built, measured ~19x slower, shelved
+
+**Focus**: Implement Polyculture/`get_companion()` companion farming for crop yield, then decide whether it actually beats 32-drone monoculture.
+
+### What changed (and why)
+- **Verified `get_companion()` live** (probes): returns `(type,(x,y))` or `None`; coords are ABSOLUTE and WRAP at grid edges; preference is known at plant time and STABLE per plant; only Grass/Bush/Tree/Carrot participate (Cactus/Pumpkin/Sunflower -> None); bonus ×160 now (5×2^level), applied if the companion exists at harvest. Saved to `companion_mechanic` memory.
+- **Built companion farming in 3 stages** (all default OFF, gated by `config.COMPANION_*`): `farm_companion()` (Stage 1 triplet, single-crop), `farm_companion_chain()` (Stage 2 chain-random, mixed Hay+Wood+Carrot), and auto-routing in the crop dispatch (`COMPANION_AUTO` + cost-driven triplet-vs-chain). Helpers: `goto_xy()` (wrap-aware), `place()`, `cmove()`.
+- **Measured it — and it LOST.** Timed live A/B on Wood, same `get_time()` clock: 32-drone monoculture ~4.47M wood/sec vs single-drone chain ~0.24M wood/sec -> **monoculture ~19x faster**. Reverted `COMPANION_AUTO=False`; bot stays on monoculture. Companion code kept (off) for the verified mechanic / a future multi-drone rebuild.
+- **Skills**: added `throughput-ab` (measure resources/sec to A/B strategies); hardened `output-watcher` (freshness-gate every break condition) and `game-probe` (standalone probes; clear occupied tiles before planting).
+
+### Decisions
+- Single-drone companion can't beat 32-drone parallelism at ×160 (multiplier ~2.8x/drone vs 32x parallel) — SHELVED, not deleted.
+- Decide strategy by MEASURED throughput, not per-move analysis — the "2.7x faster" claim was wrong because it ignored parallelism.
+
+### Issues / surprises
+- Initial throughput analysis over-claimed companion (twice); only the timed A/B settled it. -> `throughput-ab` skill.
+- Watcher false-fired on STALE `output.txt` twice (a leftover error, a leftover marker) — freshness-gate on mtime. -> `output-watcher` gotcha.
+- Probe bugs cost iterations: probes can't call main.py helpers; `plant()` silently no-ops on an occupied tile. -> `game-probe` gotchas.
+
+### Next session
+- **Restart `main.py`** to drop the live bot back to monoculture (pending).
+- Confirm Top_Hat's remaining bottleneck (Cactus then Gold) and grind it; add `trade(Items.Fertilizer)` auto-trade (Gold is now load-bearing).
+
+**Commits**: `239bfb7..0c94962` (7 commits)
+
+---
+
 ## Session: 2026-06-18 — Pumpkin/bones fixes, unlock-steering rework, skill toolkit
 
 **Focus**: Fix pumpkin & bones farming, rebuild `plant_decision()` to steer toward unlocks, and capture the recurring workflows as skills.
@@ -147,48 +174,3 @@ _Older entries are in [session-summary-archive.md](session-summary-archive.md)._
 - Consider whether `MIN_WATER_LEVEL` should also apply to a future Dinosaur/Bones crop branch.
 
 ---
-
-## Session: 2026-05-31 — Sunflower parallelization, MIN_PREREQ_STOCK bump, doc cleanup
-
-**Duration Estimate**: Short session (inferred from three tightly related commits)
-**Session Focus**: Extend the 32-drone parallelism pattern to Sunflower farming, raise the prerequisite safety buffer to match 32-drone throughput, and correct stale comments that misidentified Sunflower and Cactus as single-drone.
-
-### What Was Accomplished
-
-- Added `farm_sunflower_strip(start_x, end_x)` — a column-slice variant of the sunflower traversal using the same odd/even column logic as the original `farm_sunflower()`, but operating only over its assigned column range.
-- Rewrote `farm_sunflower()` as a dispatcher: computes per-drone column widths (same base + remainder logic as `farm_grid()`), spawns N-1 drones each calling `farm_sunflower_strip`, runs the final slice inline, then `wait_for()` all spawned drones.
-- Raised `MIN_PREREQ_STOCK` from 200 000 to 500 000 in `config.py` — 32 drones accumulate prerequisites fast enough that the smaller buffer was too thin to prevent premature tier advancement.
-- Corrected the CLAUDE.md Multi-drone section: the bullet that listed "Cactus, Maze, and Sunflower remain single-drone" now accurately states only Maze is single-drone.
-- Corrected the `config.py` NUM_DRONES comment with the same fix.
-
-### Files Changed
-
-- `main.py` — added `farm_sunflower_strip(start_x, end_x)`; refactored `farm_sunflower()` as N-drone dispatcher.
-- `config.py` — `MIN_PREREQ_STOCK` 200 000 → 500 000; corrected NUM_DRONES comment.
-- `CLAUDE.md` — updated multi-drone bullet: Maze is the only remaining single-drone strategy.
-
-### Commits This Session
-
-- `612b43d` — Parallelize all cactus farming phases across 32 drones *(carried from prior session, pushed today)*
-- `c6e03bd` — Double MIN_PREREQ_STOCK to 200000
-- `8bacd9d` — Scale to 32 drones now that Megafarm is maxed out
-- `5cef53d` — Parallelize sunflower farming across 32 drones; raise MIN_PREREQ_STOCK to 500000; fix stale single-drone comments
-
-### Decisions Made
-
-- **farm_sunflower_strip() mirrors farm_cactus strip pattern** — keeping the same column-slice and spawn/wait structure across all parallelized crops makes it easy to add future strips or adjust NUM_DRONES without touching control flow.
-- **MIN_PREREQ_STOCK = 500 000** — at 32-drone throughput the bot fills lower-tier inventory faster; a larger buffer keeps the crop ladder stable without over-farming prerequisites.
-- **Maze stays single-drone** — wall-following is inherently sequential and there is no natural column split for a maze. Confirmed as the only remaining single-drone strategy.
-
-### Issues Encountered
-
-- None. The strip pattern was already established by cactus parallelization; applying it to sunflowers was straightforward.
-
-### Remaining / Next Session
-
-- Implement selection-sort inside `farm_sunflower_strip()` to restore max-petal-first harvesting (the 8x petal bonus) without using keyword arguments.
-- Run the bot from a fresh game save to verify the full prerequisite chain at 32-drone throughput.
-- Add `farm_dinosaur()` and wire it into `plant_decision()` once cactus farming is confirmed stable at scale.
-
----
-

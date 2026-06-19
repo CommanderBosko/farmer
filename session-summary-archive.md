@@ -1,5 +1,49 @@
 # Session Summary Archive — Farmer Bot
 
+## Session: 2026-05-31 — Sunflower parallelization, MIN_PREREQ_STOCK bump, doc cleanup
+
+**Duration Estimate**: Short session (inferred from three tightly related commits)
+**Session Focus**: Extend the 32-drone parallelism pattern to Sunflower farming, raise the prerequisite safety buffer to match 32-drone throughput, and correct stale comments that misidentified Sunflower and Cactus as single-drone.
+
+### What Was Accomplished
+
+- Added `farm_sunflower_strip(start_x, end_x)` — a column-slice variant of the sunflower traversal using the same odd/even column logic as the original `farm_sunflower()`, but operating only over its assigned column range.
+- Rewrote `farm_sunflower()` as a dispatcher: computes per-drone column widths (same base + remainder logic as `farm_grid()`), spawns N-1 drones each calling `farm_sunflower_strip`, runs the final slice inline, then `wait_for()` all spawned drones.
+- Raised `MIN_PREREQ_STOCK` from 200 000 to 500 000 in `config.py` — 32 drones accumulate prerequisites fast enough that the smaller buffer was too thin to prevent premature tier advancement.
+- Corrected the CLAUDE.md Multi-drone section: the bullet that listed "Cactus, Maze, and Sunflower remain single-drone" now accurately states only Maze is single-drone.
+- Corrected the `config.py` NUM_DRONES comment with the same fix.
+
+### Files Changed
+
+- `main.py` — added `farm_sunflower_strip(start_x, end_x)`; refactored `farm_sunflower()` as N-drone dispatcher.
+- `config.py` — `MIN_PREREQ_STOCK` 200 000 → 500 000; corrected NUM_DRONES comment.
+- `CLAUDE.md` — updated multi-drone bullet: Maze is the only remaining single-drone strategy.
+
+### Commits This Session
+
+- `612b43d` — Parallelize all cactus farming phases across 32 drones *(carried from prior session, pushed today)*
+- `c6e03bd` — Double MIN_PREREQ_STOCK to 200000
+- `8bacd9d` — Scale to 32 drones now that Megafarm is maxed out
+- `5cef53d` — Parallelize sunflower farming across 32 drones; raise MIN_PREREQ_STOCK to 500000; fix stale single-drone comments
+
+### Decisions Made
+
+- **farm_sunflower_strip() mirrors farm_cactus strip pattern** — keeping the same column-slice and spawn/wait structure across all parallelized crops makes it easy to add future strips or adjust NUM_DRONES without touching control flow.
+- **MIN_PREREQ_STOCK = 500 000** — at 32-drone throughput the bot fills lower-tier inventory faster; a larger buffer keeps the crop ladder stable without over-farming prerequisites.
+- **Maze stays single-drone** — wall-following is inherently sequential and there is no natural column split for a maze. Confirmed as the only remaining single-drone strategy.
+
+### Issues Encountered
+
+- None. The strip pattern was already established by cactus parallelization; applying it to sunflowers was straightforward.
+
+### Remaining / Next Session
+
+- Implement selection-sort inside `farm_sunflower_strip()` to restore max-petal-first harvesting (the 8x petal bonus) without using keyword arguments.
+- Run the bot from a fresh game save to verify the full prerequisite chain at 32-drone throughput.
+- Add `farm_dinosaur()` and wire it into `plant_decision()` once cactus farming is confirmed stable at scale.
+
+---
+
 _Older sessions, most recent first. Active log: [session-summary.md](session-summary.md)._
 
 ## Session: 2026-05-28 — Bug-fix blitz: bot-won't-start, planting guards, prereq chain
