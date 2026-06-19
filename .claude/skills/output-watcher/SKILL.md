@@ -68,6 +68,14 @@ summary, interpret pass/fail / where it died, and continue the workflow (e.g. na
 - **Stale sentinels.** `output.txt` is overwritten each run, so a prior run's sentinel
   can false-trigger. Prefer a sentinel the most recent activity overwrote, or require
   the file to be fresh (mtime newer than when you armed it).
+- **Freshness-gate EVERY break condition, not just settle.** Hard-won twice: a watcher
+  fired on a leftover `Error: goto_sw...` from the previous run, and another fired on a
+  stale `COMPANION chain:` marker from a prior variant — both because only the *settle*
+  branch checked mtime while the sentinel/error `grep` did not. Capture `ARMED=$(date +%s)`
+  and AND every break (`grep` sentinel, `grep "Error:"`, settle) with
+  `[ "$(stat -c %Y "$OUT")" -gt "$ARMED" ]`. Tell: byte-identical numbers across "two"
+  runs = you matched stale content. When in doubt, `cat "$OUT"` and check its mtime age
+  before trusting a match.
 - **Always cover failure.** If the run can die (snake collision, parse error), pair the
   sentinel wait with the settle fallback (step 3) — otherwise you wait until timeout.
 - **`run_in_background`, not `Monitor`.** This is one completion = one notification, so
