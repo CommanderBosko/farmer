@@ -119,5 +119,17 @@ MIN_WATER_LEVEL = 0.5
 
 # Number of drones to use for parallel farming (1 = single-drone, max = 32 with Megafarm maxed).
 # Capped automatically to world_size — you can't farm more columns than exist.
-# Maze always runs single-drone regardless of this setting.
+# Maze parallelism is controlled separately by MAZE_FOUR_CORNER (below), not this.
 NUM_DRONES = 32
+
+# --- Maze (Gold) parallelism ---
+# When True, gold/maze runs use a FOUR-CORNER parallel solve: a drone is placed at
+# each corner of the farm before the maze is grown, then all four wall-follow the
+# single maze at once. The corner nearest the Treasure reaches it first and harvests;
+# the others see Items.Gold jump (num_items is a live shared inventory across drones)
+# and bail immediately, so there is no slow-loser tail. Cuts wall-clock per maze
+# toward ~1/4. Set False to revert to the original single-drone solve. Requires the
+# Megafarm upgrade (spawn_drone); falls back to single-drone when world size < 2.
+# Mechanics verified live 2026-06-19: a corner drone reaches the treasure, drones do
+# not block each other, and num_items() is live-shared across drones.
+MAZE_FOUR_CORNER = True

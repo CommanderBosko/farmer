@@ -569,15 +569,55 @@ def farm_cactus():
 	goto_sw()
 	harvest()
 
-def farm_maze():
-	# Determine how much Weird_Substance to use for this maze
-	n_substance = get_world_size() * 2 ** (num_unlocked(Unlocks.Mazes) - 1)
+def maze_goto(tx, ty):
+	# Plain directional walk to (tx, ty). Used BEFORE the maze is grown, when the
+	# whole grid is open ground, so move() never overshoots (it stops at the edge)
+	# and no wall blocks it. Guarded against an infinite loop just in case.
+	n = get_world_size()
+	guard = 0
+	while get_pos_x() != tx and guard < 4 * n:
+		guard += 1
+		if get_pos_x() < tx:
+			move(East)
+		else:
+			move(West)
+	guard = 0
+	while get_pos_y() != ty and guard < 4 * n:
+		guard += 1
+		if get_pos_y() < ty:
+			move(North)
+		else:
+			move(South)
 
-	# Only attempt if we have enough Weird_Substance
-	if get_amount(Items.Weird_Substance) < n_substance:
-		return
+def maze_solver(gold_start):
+	# Left-hand wall-follow from the drone's current tile to the single Treasure.
+	# Spawned at a corner BEFORE the maze grows: pre-maze it harmlessly circles on
+	# open ground, then follows walls once they appear (verified live). Bails the
+	# instant another drone harvests the treasure — num_items(Items.Gold) is a LIVE
+	# SHARED inventory across drones (verified live), so the loser tail is ~0 steps.
+	# Directions cycle: North=0, East=1, South=2, West=3.
+	n = get_world_size()
+	DIRS = [North, East, South, West]
+	facing = 0
+	max_steps = n * n * 4
+	steps = 0
+	while steps < max_steps:
+		if get_entity_type() == Entities.Treasure:
+			harvest()
+			return
+		if num_items(Items.Gold) > gold_start:
+			return  # another corner drone already won this maze
+		steps += 1
+		left = (facing - 1) % 4
+		if move(DIRS[left]):
+			facing = left
+		elif move(DIRS[facing]):
+			pass  # moved straight, keep facing
+		else:
+			facing = (facing + 1) % 4
 
-	# Plant a bush on grassland (no tilling needed) and grow a maze from it
+def farm_maze_single(n_substance):
+	# Original single-drone solve: grow the maze from a bush and wall-follow it.
 	clear()
 	if get_entity_type() != Entities.Bush:
 		if get_ground_type() != Grounds.Grassland:
@@ -585,8 +625,6 @@ def farm_maze():
 		plant(Entities.Bush)
 	use_item(Items.Weird_Substance, n_substance)
 
-	# Wall-following algorithm to navigate to the treasure
-	# Directions cycle: North=0, East=1, South=2, West=3
 	DIRS = [North, East, South, West]
 	facing = 0  # start facing North
 	max_steps = get_world_size() * get_world_size() * 4
@@ -596,19 +634,58 @@ def farm_maze():
 		if steps >= max_steps:
 			break  # safety valve — bail out if maze takes too long
 		steps += 1
-		# Try to turn left and move (left-hand wall following)
 		left = (facing - 1) % 4
 		if move(DIRS[left]):
 			facing = left
 		elif move(DIRS[facing]):
 			pass  # moved straight, keep facing
 		else:
-			# Turn right
 			facing = (facing + 1) % 4
 
-	# Harvest only if we actually reached the treasure
 	if get_entity_type() == Entities.Treasure:
 		harvest()
+
+	clear()
+
+def farm_maze():
+	# Determine how much Weird_Substance to use for this maze
+	n_substance = get_world_size() * 2 ** (num_unlocked(Unlocks.Mazes) - 1)
+
+	# Only attempt if we have enough Weird_Substance
+	if get_amount(Items.Weird_Substance) < n_substance:
+		return
+
+	n = get_world_size()
+	if not config.MAZE_FOUR_CORNER or n < 2:
+		farm_maze_single(n_substance)
+		return
+
+	# Four-corner parallel solve. Walk to each of three corners on the still-open
+	# grid and spawn a solver in place; then grow the maze from the fourth corner
+	# (origin) and solve from there too. All four wall-follow the one maze at once;
+	# the corner nearest the treasure wins and harvests, the rest bail immediately.
+	gold_start = num_items(Items.Gold)
+	clear()
+
+	maze_goto(n - 1, 0)
+	d1 = spawn_drone(maze_solver, gold_start)
+	maze_goto(n - 1, n - 1)
+	d2 = spawn_drone(maze_solver, gold_start)
+	maze_goto(0, n - 1)
+	d3 = spawn_drone(maze_solver, gold_start)
+
+	# Parent: origin corner, grow the maze from a bush, then solve from here
+	maze_goto(0, 0)
+	if get_entity_type() != Entities.Bush:
+		if get_ground_type() != Grounds.Grassland:
+			till()
+		plant(Entities.Bush)
+	use_item(Items.Weird_Substance, n_substance)
+	maze_solver(gold_start)
+
+	wait_for(d1)
+	wait_for(d2)
+	wait_for(d3)
 
 	# Reset farm to a clean farmable state regardless of outcome
 	clear()
