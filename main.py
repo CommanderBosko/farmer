@@ -12,6 +12,15 @@ FOCUS_CROP_MAP = {
 	"Bones": Items.Bone,
 }
 
+# config.COMPANION_CROP -> the primary plant we harvest for that resource. Only these
+# three plants expose a get_companion() preference (Cactus/Pumpkin/Sunflower return
+# None), so only these three can be companion-farmed.
+COMPANION_ENTITY_MAP = {
+	"Hay": Entities.Grass,
+	"Wood": Entities.Tree,
+	"Carrot": Entities.Carrot,
+}
+
 # --- Global State ---
 hay = 0
 wood = 0
@@ -747,6 +756,116 @@ def farm_sunflower():
 	for d in drones:
 		wait_for(d)
 
+# --- Companion (Polyculture) farming ---
+# Stage 1: deterministic "triplet" — for each tile, ensure the primary plant, read its
+# companion preference, place that companion at the requested tile, return, and harvest
+# the primary for the Polyculture multiplier. Single-drone. Companion preference is
+# known immediately at plant and is stable per plant, so we measure once per visit.
+# Coordinates from get_companion() are ABSOLUTE and WRAP at grid edges, so navigation
+# uses goto_xy() (wrap-aware shortest path), NOT the no-wrap strip guards used elsewhere.
+
+def companion_item(primary):
+	# The Items resource harvested from each primary plant (for yield reporting).
+	if primary == Entities.Grass:
+		return Items.Hay
+	if primary == Entities.Carrot:
+		return Items.Carrot
+	return Items.Wood
+
+def goto_xy(tx, ty):
+	# Move to absolute (tx, ty) by the shorter wrap-aware direction on each axis.
+	# move() wraps around the field edges, so eastward distance dx = (tx-x) mod n and
+	# westward = n-dx; pick whichever is shorter. Guarded against an infinite loop in
+	# case a move is ever blocked (companion fields have no obstacles, but be safe).
+	n = get_world_size()
+	guard = 0
+	while get_pos_x() != tx and guard < 2 * n:
+		guard += 1
+		dx = (tx - get_pos_x()) % n
+		if dx * 2 <= n:
+			move(East)
+		else:
+			move(West)
+	guard = 0
+	while get_pos_y() != ty and guard < 2 * n:
+		guard += 1
+		dy = (ty - get_pos_y()) % n
+		if dy * 2 <= n:
+			move(North)
+		else:
+			move(South)
+
+def place(entity):
+	# Ensure the tile under the drone holds `entity`. Early-return if it already does so
+	# we never reset a growing plant or pay a seed twice (companion growth stage doesn't
+	# matter, so a freshly-placed companion is enough). Grass = bare grassland (free, no
+	# seed); Bush/Tree/Carrot = clear to soil and plant (costs the seed).
+	if get_entity_type() == entity:
+		return
+	if entity == Entities.Grass:
+		if can_harvest():
+			harvest()
+		if get_ground_type() != Grounds.Grassland:
+			till()
+		if get_ground_type() != Grounds.Grassland:
+			till()
+	else:
+		if can_harvest():
+			harvest()
+		till()
+		if get_ground_type() != Grounds.Soil:
+			till()
+		plant(entity)
+
+def companion_cell(primary):
+	# Triplet for one tile: ensure primary -> read its companion -> place it nearby ->
+	# return -> harvest the primary (with the multiplier) if it's ready. For Grass the
+	# primary is always harvestable; Carrot/Tree ripen over passes (companion already set
+	# up, so a later pass harvests it boosted).
+	place(primary)
+	comp = get_companion()
+	if comp != None:
+		cx = get_pos_x()
+		cy = get_pos_y()
+		comp_type = comp[0]
+		comp_pos = comp[1]
+		# Companion is always a different type than the plant and never its own tile.
+		goto_xy(comp_pos[0], comp_pos[1])
+		place(comp_type)
+		goto_xy(cx, cy)
+	if can_harvest():
+		harvest()
+		place(primary)
+
+def farm_companion(primary):
+	# Single-drone boustrophedon sweep over the whole field, running the triplet per tile.
+	# Reports yield/cell so the multiplier can be verified live (≈40/cell with companions
+	# vs ≈1/cell monoculture for a fully-ripe field).
+	update_amounts()
+	world_size = get_world_size()
+	item = companion_item(primary)
+	before = num_items(item)
+	cells = 0
+	goto_sw()
+	for x in range(world_size):
+		if x % 2 == 0:
+			for y in range(world_size):
+				companion_cell(primary)
+				cells += 1
+				if y < world_size - 1:
+					move(North)
+		else:
+			for y in range(world_size - 1, -1, -1):
+				companion_cell(primary)
+				cells += 1
+				if y > 0:
+					move(South)
+		if x < world_size - 1:
+			move(East)
+	if config.PRINT_GOAL_INTERVAL:
+		gained = num_items(item) - before
+		quick_print("COMPANION " + str(config.COMPANION_CROP) + " sweep: +" + str(gained) + " over " + str(cells) + " cells")
+
 # --- Main Execution ---
 
 clear()
@@ -757,6 +876,18 @@ while True:
 
 	update_amounts()
 	auto_unlocks()
+
+	# Companion (Polyculture) mode: a single-drone companion-planting sweep that bypasses
+	# normal monoculture/unlock-steering. Off unless config.COMPANION_CROP is set AND
+	# Polyculture is unlocked (get_companion() needs it).
+	if config.COMPANION_CROP in COMPANION_ENTITY_MAP and num_unlocked(Unlocks.Polyculture) > 0:
+		if config.PRINT_GOAL_INTERVAL and loop_counter % config.PRINT_GOAL_INTERVAL == 0:
+			quick_print('--------------------------------------------------------------------')
+			quick_print("Current Goal: Companion " + config.COMPANION_CROP)
+			quick_print('--------------------------------------------------------------------')
+		farm_companion(COMPANION_ENTITY_MAP[config.COMPANION_CROP])
+		continue
+
 	crop_choice = plant_decision()
 
 	# Print goal occasionally based on config

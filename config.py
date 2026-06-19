@@ -7,6 +7,18 @@
 # you must pre-stock those prerequisites manually before enabling this mode.
 FOCUS_CROP = None
 
+# --- Companion (Polyculture) farming ---
+# When set, the bot ignores normal farming and runs a single-drone companion-planting
+# sweep for this crop: each plant's get_companion() preference is satisfied at a nearby
+# tile so the harvest yields the Polyculture multiplier (currently ~40x). Only Grass
+# (Hay), Tree (Wood), and Carrot expose companions, so the valid values are:
+#   "Hay", "Wood", "Carrot", or None (off — normal monoculture/unlock-steering).
+# Single-drone by design (companion tiles cross column boundaries), so it trades the
+# 32-drone parallelism for the per-harvest multiplier; it pulls ahead as Polyculture
+# levels up. No-op unless Unlocks.Polyculture is unlocked. Hay needs no seeds; Wood/
+# Carrot companions cost a few wood/hay to place (dwarfed by the multiplier).
+COMPANION_CROP = None
+
 # How often to print the current goal (every N loops). Set to 1 to print every loop.
 # Set to 0 or None to disable.
 PRINT_GOAL_INTERVAL = 1
