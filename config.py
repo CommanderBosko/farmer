@@ -28,22 +28,25 @@ COMPANION_CROP = None
 COMPANION_CHAIN = False
 
 # --- Auto companion farming ---
-# When True, the bot AUTOMATICALLY uses companion farming for a Hay/Wood/Carrot goal
-# (replacing 32-drone monoculture for that goal) whenever the Polyculture multiplier is
-# high enough to beat monoculture — see COMPANION_MIN_LEVEL. Cactus/Gold/Bones/Power and
-# any below-threshold goal keep their normal paths. It slots in AFTER plant_decision()'s
-# energy floor + prerequisite gating, so steering is unchanged; only the farming METHOD
-# changes. Method is cost-driven: if the unlock being steered toward costs >=2 of
-# {Hay,Wood,Carrot} (i.e. Top_Hat) it uses the mixed chain; if exactly 1, the targeted
-# triplet; once all unlocks are maxed, the chain. Default off — opt in after a live soak.
-# (Bench always farms monoculture, so companion yield is validated LIVE, like bones.)
-COMPANION_AUTO = True
+# WARNING — MEASURED SLOWER, KEEP OFF. A live A/B (2026-06-19, Wood, x160 Polyculture)
+# found single-drone companion farming ~19x SLOWER than 32-drone monoculture:
+# ~0.24M vs ~4.47M wood/sec. The x160 multiplier is only ~2.8x per drone, which cannot
+# overcome monoculture's 32x parallelism. Companion would only win if parallelized across
+# drones (a multi-strip chain — NOT built) or once Polyculture climbs several more levels
+# (~x1024+). Kept off, for that future possibility / the verified mechanic.
+#
+# When True, the bot uses companion farming for a Hay/Wood/Carrot goal (replacing 32-drone
+# monoculture) when num_unlocked(Polyculture) >= COMPANION_MIN_LEVEL. It slots in AFTER
+# plant_decision()'s energy floor + prereq gating (steering unchanged; only the METHOD
+# changes). Method is cost-driven: unlock costing >=2 of {Hay,Wood,Carrot} (Top_Hat) ->
+# mixed chain; exactly 1 -> targeted triplet; all unlocks maxed -> chain. DEFAULT OFF.
+COMPANION_AUTO = False
 
 # Minimum Polyculture level (num_unlocked(Unlocks.Polyculture)) at which COMPANION_AUTO
-# kicks in. Multiplier = 5 * 2**level (level 0 = x5 ... level 5 = x160). Live data: at
-# x160 the single-drone chain (~4.5 moves/harvest) beats 32-drone monoculture by ~2.7x;
-# the crossover is around level 4 (x80). Default 5 (conservative — only the measured-win
-# level). Polyculture auto-levels upward, so companion only gets more favorable over time.
+# would kick in. Multiplier = 5 * 2**level (level 0 = x5 ... level 5 = x160). Set high
+# because companion LOSES badly to monoculture at today's levels (see warning above) — the
+# single-drone multiplier would need to be ~32x the per-harvest base to break even, i.e.
+# many more Polyculture levels. Moot while COMPANION_AUTO is False.
 COMPANION_MIN_LEVEL = 5
 
 # How often to print the current goal (every N loops). Set to 1 to print every loop.
