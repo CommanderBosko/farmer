@@ -1,59 +1,66 @@
 # Project State — Farmer Bot
 
-Last updated: 2026-06-14
+Last updated: 2026-06-18
 
 ---
 
 ## Current Project State
 
-The bot runs the full crop progression unattended and now **farms Bones** (the
-last gating mechanic), which unblocked the tech tree. There is also a **`simulate()`
-benchmark harness** for catching resource-starvation regressions before they ship.
-The prerequisite chain (Hay → Wood → Carrot → Pumpkin → Cactus → Weird_Substance)
-is enforced, all strategies except Maze/Bones parallelize across up to 32 drones.
+The bot is now an **unlock-driven, set-and-forget** agent: it pours all effort into
+whatever the next upgrade needs, and only balances resources once the tech tree is
+fully maxed. The crop progression, bones farming, and the decision core were all
+reworked this session and are **live-validated**. Only **3 unlocks remain**:
+Polyculture (auto-leveling), The_Farmers_Remains (100M Bones — currently being farmed),
+and Top_Hat (1B Hay + 10B Wood + 1B Carrot + 1B Cactus + 100M Gold — the long grind).
 
 **What works:**
-- Full crop cycle: Hay → Wood → Carrot → Pumpkin → Cactus → Maze → Sunflower
-- **Bones farming** (`farm_bones()`): dinosaur-hat snake (Hamiltonian boustrophedon,
-  bottom row = return lane) eating apples (64 Cactus each) → `tail_length²` Bones.
-  Live-validated (~16.9k bones / 8 laps on 32×32), single-drone, even world size only.
-  Integrated as a throttled lowest-stock branch; runs unattended.
-- **simulate() no-starvation harness**: `gen_bench_main.py` generates `bench_main`
-  (terminating twin of `main`), `bench.py` runs it; reports per-resource init/min/final
-  + PASS/FAIL (resource ended empty) to output.txt. Drove the carrot-drain fix.
-- **Carrot-drain fix**: pumpkin planting costs 256 Carrot; a `MIN_CARROT_FOR_PUMPKIN`
-  reserve stops the pumpkin path from draining carrots to 0.
-- Multi-prerequisites per crop; multi-drone column splitting (NUM_DRONES, default 32)
-- Maze farming (threshold trigger, wall-following safety valve, single-drone)
-- Gold tracking / MIN_GOLD_STOCK grinding mode; auto-unlock purchasing
-- Planting guards, crop-transition clearing, configurable pre-plant watering
+- **Decision core** (`plant_decision()`): `FOCUS_CROP` override → **Energy floor**
+  (`power < MIN_POWER_STOCK`) → **unlock steering** → **lowest-stock balance** (only
+  once all unlocks are maxed).
+- **Unlock steering** (`get_next_unlock()`): finds the next non-maxed unlock and the
+  single resource it's most short of (bottleneck), and farms *only* that until the
+  unlock is affordable — dynamic for any resource (Bone→snake, Gold→maze/pumpkin-for-
+  substance, crops→`check_stock`), shifting the bottleneck as each fills. No throttling
+  or balancing while unlocks remain.
+- **`auto_unlocks()`**: buys ANY unlock whose full `get_cost()` is affordable
+  (`can_afford`, multi-resource aware) — fixed the old single-payment assumption that
+  stranded Polyculture.
+- **Bones** (`farm_bones()`): apple-targeted snake — counts apples via `measure()` on
+  the safe Hamiltonian cycle and cashes out at exactly `BONES_TARGET_TAIL` (default 900
+  → ~32M Bones). Live-calibrated: bones ≈ **40×tail²**, ~2.7 apples/lap, self-collision
+  at tail ~1023, `move()` tick floor ~37. Origin-safe (`goto_sw()` first) + lap safety cap.
+- **Pumpkin**: dead pumpkins are cleared by `plant()` (never `till()` — it poisons the
+  soil); fertilizer check uses live `num_items`; water loop bounded. No more empty plots.
+- Full crop cycle, multi-prerequisite chain, multi-drone column splitting (NUM_DRONES),
+  maze/sunflower, gold tracking, configurable watering.
+- Goal status line: `Current Goal: <crop> for Unlock: <unlock>` (or `Unlocks Complete!`).
+- **Tooling**: `simulate()` no-starvation bench harness; 9 project skills (see below).
 
-**What is in progress / partially done:**
-- **Companion planting** (`get_companion()`): NOT implemented. Polyculture is now
-  Lvl 2+, so the 5×→10×→20× yield multiplier is available but unused — the biggest
-  remaining throughput opportunity.
-- **Pumpkin reliability**: the per-tile pumpkin logic still leaves dead pumpkins and
-  doesn't reliably form mega-pumpkins (separate from the carrot-cost fix). A 2026-06-13
-  rework was reverted; `main` is on the original logic.
+**In progress (grinding toward the goal):**
+- The_Farmers_Remains — bot is farming Bones toward 100M (live-confirmed steering).
+- After it: Top_Hat — steering will shift to its biggest shortfall (Wood, then the rest).
 
-**What is broken / known issues:**
-- Pumpkin mega-pumpkin formation is inefficient (see Known Issues). Not blocking.
+**Broken / not done:**
+- **Pumpkin giant-merge** not optimized — dead pumpkins are now cleared, but the per-tile
+  logic doesn't aim for the giant-pumpkin area bonus. Not blocking.
+- **Companion planting** (`get_companion()`) still unused for crops (lower priority now
+  that the bot is unlock-steering; Polyculture's multiplier already applies to Bones).
 
 ---
 
 ## Current Goals
 
 ### Short-term (next 1–3 sessions)
-1. **Companion planting** — wire `get_companion()` into the farm loops to apply the
-   Polyculture yield multiplier. Validate with the bench harness (yields up, no
-   starvation regressions).
-2. Observe the live bones trigger end-to-end and tune `BONES_LAPS` / `BONES_LOOP_INTERVAL`.
-3. Pumpkin mega-pumpkin reliability (take 2), isolating one variable at a time.
+1. Watch **The_Farmers_Remains** complete (Bones → 100M) and confirm the hand-off to
+   **Top_Hat** steering (Wood first).
+2. **Auto-trade fertilizer** — add `trade(Items.Fertilizer)` so weird substance (→ Gold
+   via maze) is self-sustaining; today there's *no* trade logic, so substance only comes
+   from spending the ~1.54M fertilizer stockpile.
+3. Optional: companion planting (`get_companion`) for crop yield; pumpkin giant-merge take 2.
 
 ### Long-term
-- Full hands-off completion with no manual levers (`MIN_GOLD_STOCK`, `FOCUS_CROP`).
-- Harness v2: config auto-tuning, A/B strategy comparison, runtime self-optimization
-  (the globals-injection mechanism is already proven out).
+- Fully hands-off completion of the tech tree with no manual levers, then steady-state balance forever.
+- Harness v2: config auto-tuning / A/B strategy comparison against bench `run_time`.
 
 ---
 
@@ -61,42 +68,48 @@ is enforced, all strategies except Maze/Bones parallelize across up to 32 drones
 
 | Date | Decision | Rationale |
 |---|---|---|
-| 2026-05-28 | No keyword arguments anywhere | Game parser rejects `func(key=value)` — silent load failure |
-| 2026-05-31 | MIN_PREREQ_STOCK = 500 000 | 32-drone throughput accumulates prerequisites fast; large buffer keeps tiers stable |
-| 2026-06-13 | Reverted all pumpkin rework to d585c32 | Experiments behaved worse in-game; preserved on `backup/pumpkin-wip-2026-06-13` |
-| 2026-06-14 | Built a `simulate()` bench harness as a generated twin of `main` | simulate() runs a file that must terminate; a generated twin keeps strategy single-source vs. duplicating it |
-| 2026-06-14 | Bench results come via `output.txt`, not the `globals` dict | The `globals` dict passed to simulate() is not mutated back; quick_print → output.txt is the only readback channel |
-| 2026-06-14 | `MIN_CARROT_FOR_PUMPKIN` reserve (default 100k) | Pumpkin planting costs 256 Carrot; without a floor the pumpkin path drains carrots to 0 (oscillation). Found via the harness |
-| 2026-06-14 | Bones = throttled lowest-stock branch, single-drone, even size | Only one dino hat; a full snake is a long blocking run, so throttle it; the Hamiltonian cycle closes cleanly only on even sizes |
-| 2026-06-14 | Bones validated live, excluded from the bench | `change_hat` errors inside simulate() (hats can't be conveyed), so the sim can't exercise the bones path |
+| 2026-06-18 | Steer to the next unlock's bottleneck resource, not lowest-stock, while unlocks remain | User's model: pour everything into the upgrade being chased; balance only after all unlocks are maxed |
+| 2026-06-18 | While steering to an unlock, no throttle/no balance fallback | Falling back to balance farmed off-task resources (e.g. Gold) that weren't needed for the unlock |
+| 2026-06-18 | `auto_unlocks` buys any affordable unlock (full cost dict) | Old single-`required_item` check silently skipped bones-cost/multi-resource unlocks (Polyculture, Top_Hat, Remains) |
+| 2026-06-18 | Bones target = apple count (`BONES_TARGET_TAIL`), not laps; precise cash-out; default 900 | Deterministic yield (bones=40×tail²); a snake death halts the WHOLE bot, so stay clear of the ~1023 collision |
+| 2026-06-18 | `farm_bones()` goes to origin before snaking | Snake path is origin-relative; the main loop left the drone mid-field → it tangled into its tail and halted the program |
+| 2026-06-18 | Never `till()` a dead pumpkin; `plant()` clears it directly | Live-probed: `till()` reverts the dead-pumpkin Soil to Grassland, after which planting silently fails |
+| 2026-06-18 | Removed `MIN_WEIRD_SUBSTANCE_STOCK`; maze dispatches via `Items.Gold` | The WS-threshold auto-maze left the goal stuck on "Weird_Substance"; Gold is now just a balanced/steered resource with a clear label |
+| 2026-06-14 | `MIN_CARROT_FOR_PUMPKIN` reserve | Pumpkin planting costs 256 Carrot; without a floor the pumpkin path drains carrots to 0 |
 
 ---
 
 ## Known Issues / Tech Debt
 
-- **Companion planting unused** — `get_companion()` is available (Polyculture Lvl 2+)
-  but no farm loop applies it; leaving the yield multiplier on the table.
-- **Pumpkin mega-pumpkin** — original per-tile logic leaves ~20% dead pumpkins and
-  doesn't aim for the giant-pumpkin area bonus. Rework attempts on
-  `backup/pumpkin-wip-2026-06-13` failed in-game (likely carrot/grid plow-thrash).
-  Distinct from the now-fixed carrot *cost* drain.
-- **Bones not bench-testable** — the harness can't validate bones (hats error in-sim);
-  bones must be checked live. `bench_main` skips it; the verdict excludes it.
-- **Harness runs hatless** — the sim can't equip hats, so yields differ slightly from
-  production (Pumpkin_Hat bonus absent). Acceptable for no-starvation checks.
-- **`MAX_SUNFLOWER_SEED_COST = 6` is stale** — real sunflower cost is 1 Carrot in this
-  version. Harmless (it's a conservative guard) but worth correcting if the sunflower
-  path is touched.
+- **No fertilizer auto-trade** — weird substance (→ Gold) only regenerates from spending
+  the fertilizer stockpile (~1.54M); no `trade()` exists anywhere, so if fertilizer hits
+  0 the Gold/substance path stalls (the gold-steer branch falls through rather than
+  deadlocking). Plenty of runway for now; real fix is an auto-trade step.
+- **Pumpkin giant-merge** — per-tile logic clears dead pumpkins but doesn't form giants
+  for the area bonus. Distinct from the now-fixed growth-reset/empty-plot bugs.
+- **Bones not bench-testable** — `change_hat` errors in `simulate()`, so `bench_main`
+  skips bones; validate live only. (Steering-to-bones loops are no-ops in-sim.)
+- **Stale-running-code trap** — editing `main.py` does nothing to a *running* script; it
+  must be restarted. Several apparent "bugs" this session were just un-restarted old code.
+- **`MAX_SUNFLOWER_SEED_COST = 6` is stale** — real cost is 1 Carrot now; harmless guard.
 - **No class/OOP** — hard game constraint; all state is module-level globals.
 
 ---
 
 ## Next Steps
 
-1. **Companion planting:** read `get_companion()` (returns `[companion_type, x, y]`),
-   and in the farm loops plant the preferred companion adjacent to satisfy the
-   Polyculture multiplier. Validate via `/bench` (yields rise, PASS holds).
-2. Run `main` live and confirm the bones throttle fires `farm_bones()` end-to-end;
-   tune `BONES_LAPS` (bones/run vs run length) and `BONES_LOOP_INTERVAL` (frequency).
-3. Pumpkin mega-pumpkin take 2 — change one thing, watch one field in-game.
-4. Consider harness v2 (auto-tune config knobs against bench run_time).
+1. Live: confirm The_Farmers_Remains unlocks (Bones → 100M), then that steering shifts to
+   Top_Hat's Wood. (`live-verify` / `output-watcher` for the `Unlocked` line.)
+2. Add `trade(Items.Fertilizer)` auto-trade so the Gold/substance chain is self-sustaining.
+3. Companion planting (`get_companion`) for crop yield once unlock-grinding allows.
+4. Pumpkin giant-merge take 2 — change one variable, watch one field in-game.
+
+---
+
+## Skills (project-local, `.claude/skills/`)
+
+`bench`, `config-set`, `farm-status`, `game-probe`, `syntax-check`, plus this session's:
+`probe-sweep` (bisect a knob in-game), `output-watcher` (auto-read output.txt on run
+completion), `ship-change` (syntax→bench→commit pipeline), `verify-mechanic` (confirm
+game behavior via wiki/probe → memory), `diagnose-behavior` (trace `plant_decision`),
+`unlock-status` (dump unlock progress), `live-verify` (restart + confirm a change took).

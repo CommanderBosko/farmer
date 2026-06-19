@@ -7,9 +7,13 @@ treasure runs, Sunflower power farming, and Gold accumulation.
 
 ## Current Status
 
-Active development. All core crop strategies run unattended, the tech-tree blocker
-is cleared (Bones farming works and Polyculture Lvl 2 is unlocked), and a
-`simulate()`-based benchmark harness guards against resource-starvation regressions.
+Active development. The bot is **unlock-driven**: `plant_decision()` runs an Energy
+floor, then steers all effort to whatever resource the next upgrade needs (any
+resource, dynamically), and only falls back to lowest-stock balancing once the tech
+tree is fully maxed. Crop progression, Bones farming, and the decision core were
+reworked and are live-validated; a `simulate()`-based harness guards against
+resource-starvation regressions. Three unlocks remain (Polyculture, The_Farmers_Remains,
+Top_Hat) and the bot is grinding toward them automatically.
 
 ---
 
@@ -156,6 +160,24 @@ will not start and the game gives no error message.
 ---
 
 ## Recent Changes
+
+**2026-06-18 — Pumpkin/Bones fixes, unlock-steering rework, skill toolkit**
+
+- **Decision rework**: `plant_decision()` now steers to the next unlock's bottleneck
+  resource (via `get_next_unlock()`) and farms only that until the unlock is affordable;
+  lowest-stock balancing is the post-all-unlocks fallback. `auto_unlocks()` now buys any
+  fully-affordable unlock (multi-resource aware), fixing a bug that stranded Polyculture.
+  The goal line reads `Current Goal: <crop> for Unlock: <unlock>`.
+- **Bones**: rewrote `farm_bones()` to target an apple/tail count (`BONES_TARGET_TAIL`,
+  default 900 → ~32M Bones) instead of laps, counting apples via `measure()` and cashing
+  out at exactly the target. Fixed a bug where an origin-offset snake ate its own tail and
+  halted the whole bot. Calibrated: bones ≈ 40×tail², self-collision at tail ~1023.
+- **Pumpkin**: fixed empty plots (the wait loop was re-planting living pumpkins and
+  resetting growth) and hardened fertilizer/water handling; dead pumpkins are cleared by
+  `plant()` (never `till()` — it poisons the soil).
+- Removed the dead `MIN_WEIRD_SUBSTANCE_STOCK` knob (mazes now run when Gold is needed).
+- Added 7 project skills: `probe-sweep`, `output-watcher`, `ship-change`,
+  `verify-mechanic`, `diagnose-behavior`, `unlock-status`, `live-verify`.
 
 **2026-06-14 — simulate() harness, carrot-drain fix, and Bones farming**
 
