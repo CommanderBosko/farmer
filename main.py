@@ -952,6 +952,55 @@ def farm_companion_chain(seed_entity):
 		dc = num_items(Items.Carrot) - c0
 		quick_print("COMPANION chain: hay+" + str(dh) + " wood+" + str(dw) + " carrot+" + str(dc) + " harvested=" + str(harvested) + " moves=" + str(companion_moves) + " steps=" + str(steps))
 
+# --- Auto companion routing (decides WHEN/HOW to use companion farming) ---
+
+def companion_favorable():
+	# Companion farming beats monoculture only above a multiplier threshold (see
+	# config.COMPANION_MIN_LEVEL). num_unlocked() returns the Polyculture level.
+	return num_unlocked(Unlocks.Polyculture) >= config.COMPANION_MIN_LEVEL
+
+def is_companion_crop(item):
+	# Only these three resources come from plants that expose a companion preference.
+	return item == Items.Hay or item == Items.Wood or item == Items.Carrot
+
+def companion_entity_for(item):
+	# The plant whose boosted harvest yields this resource.
+	if item == Items.Hay:
+		return Entities.Grass
+	if item == Items.Wood:
+		return Entities.Tree
+	return Entities.Carrot
+
+def companion_should_chain():
+	# Cost-driven triplet-vs-chain: chain when the unlock we're steering toward needs
+	# >=2 of {Hay,Wood,Carrot} (mixed output serves them at once, e.g. Top_Hat), or when
+	# every unlock is maxed (steady-state balance). Otherwise the targeted single-crop
+	# triplet. Mirrors get_next_unlock()'s "closest-to-affordable non-maxed" selection.
+	best_u = None
+	best_short = 0
+	found = False
+	for u in Unlocks:
+		cost = get_cost(u)
+		if not cost:
+			continue
+		short = 0
+		for item in cost:
+			gap = cost[item] - get_amount(item)
+			if gap > short:
+				short = gap
+		if not found or short < best_short:
+			best_short = short
+			best_u = u
+			found = True
+	if not found:
+		return True  # all unlocks maxed -> steady-state balance, use the mixed chain
+	cost = get_cost(best_u)
+	count = 0
+	for item in cost:
+		if item == Items.Hay or item == Items.Wood or item == Items.Carrot:
+			count += 1
+	return count >= 2
+
 # --- Main Execution ---
 
 clear()
@@ -1010,6 +1059,14 @@ while True:
 	elif crop_choice == Items.Bone:
 		farm_bones()
 		last_bones_loop = loop_counter
+	elif config.COMPANION_AUTO and is_companion_crop(crop_choice) and companion_favorable():
+		# Auto companion farming for a Hay/Wood/Carrot goal (single-drone, ×multiplier).
+		# This sits AFTER plant_decision()'s energy floor + prereq gating, so the goal was
+		# already chosen normally; only the farming METHOD changes. Method is cost-driven.
+		if companion_should_chain():
+			farm_companion_chain(companion_entity_for(crop_choice))
+		else:
+			farm_companion(companion_entity_for(crop_choice))
 	else:
 		world_size = get_world_size()
 		num_drones = min(config.NUM_DRONES, world_size)

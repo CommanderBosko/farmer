@@ -27,6 +27,25 @@ COMPANION_CROP = None
 # COMPANION_CROP picks the seed plant for chain mode; the chain then wanders across types.
 COMPANION_CHAIN = False
 
+# --- Auto companion farming ---
+# When True, the bot AUTOMATICALLY uses companion farming for a Hay/Wood/Carrot goal
+# (replacing 32-drone monoculture for that goal) whenever the Polyculture multiplier is
+# high enough to beat monoculture — see COMPANION_MIN_LEVEL. Cactus/Gold/Bones/Power and
+# any below-threshold goal keep their normal paths. It slots in AFTER plant_decision()'s
+# energy floor + prerequisite gating, so steering is unchanged; only the farming METHOD
+# changes. Method is cost-driven: if the unlock being steered toward costs >=2 of
+# {Hay,Wood,Carrot} (i.e. Top_Hat) it uses the mixed chain; if exactly 1, the targeted
+# triplet; once all unlocks are maxed, the chain. Default off — opt in after a live soak.
+# (Bench always farms monoculture, so companion yield is validated LIVE, like bones.)
+COMPANION_AUTO = False
+
+# Minimum Polyculture level (num_unlocked(Unlocks.Polyculture)) at which COMPANION_AUTO
+# kicks in. Multiplier = 5 * 2**level (level 0 = x5 ... level 5 = x160). Live data: at
+# x160 the single-drone chain (~4.5 moves/harvest) beats 32-drone monoculture by ~2.7x;
+# the crossover is around level 4 (x80). Default 5 (conservative — only the measured-win
+# level). Polyculture auto-levels upward, so companion only gets more favorable over time.
+COMPANION_MIN_LEVEL = 5
+
 # How often to print the current goal (every N loops). Set to 1 to print every loop.
 # Set to 0 or None to disable.
 PRINT_GOAL_INTERVAL = 1
