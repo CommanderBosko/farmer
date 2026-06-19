@@ -764,6 +764,9 @@ def farm_sunflower():
 # Coordinates from get_companion() are ABSOLUTE and WRAP at grid edges, so navigation
 # uses goto_xy() (wrap-aware shortest path), NOT the no-wrap strip guards used elsewhere.
 
+# Per-sweep movement counter, so triplet vs chain can be compared on moves/harvest.
+companion_moves = 0
+
 def companion_item(primary):
 	# The Items resource harvested from each primary plant (for yield reporting).
 	if primary == Entities.Grass:
@@ -771,6 +774,12 @@ def companion_item(primary):
 	if primary == Entities.Carrot:
 		return Items.Carrot
 	return Items.Wood
+
+def cmove(d):
+	# move() with a counter, so we can measure moves-per-harvest live.
+	global companion_moves
+	companion_moves += 1
+	move(d)
 
 def goto_xy(tx, ty):
 	# Move to absolute (tx, ty) by the shorter wrap-aware direction on each axis.
@@ -783,17 +792,17 @@ def goto_xy(tx, ty):
 		guard += 1
 		dx = (tx - get_pos_x()) % n
 		if dx * 2 <= n:
-			move(East)
+			cmove(East)
 		else:
-			move(West)
+			cmove(West)
 	guard = 0
 	while get_pos_y() != ty and guard < 2 * n:
 		guard += 1
 		dy = (ty - get_pos_y()) % n
 		if dy * 2 <= n:
-			move(North)
+			cmove(North)
 		else:
-			move(South)
+			cmove(South)
 
 def place(entity):
 	# Ensure the tile under the drone holds `entity`. Early-return if it already does so
@@ -838,13 +847,14 @@ def companion_cell(primary):
 		place(primary)
 
 def farm_companion(primary):
-	# Single-drone boustrophedon sweep over the whole field, running the triplet per tile.
-	# Reports yield/cell so the multiplier can be verified live (≈40/cell with companions
-	# vs ≈1/cell monoculture for a fully-ripe field).
+	# Stage 1 — single-drone boustrophedon sweep running the triplet per tile. Reports
+	# gain + moves so it can be compared against the chain optimizer (Stage 2).
+	global companion_moves
 	update_amounts()
 	world_size = get_world_size()
 	item = companion_item(primary)
 	before = num_items(item)
+	companion_moves = 0
 	cells = 0
 	goto_sw()
 	for x in range(world_size):
@@ -853,18 +863,94 @@ def farm_companion(primary):
 				companion_cell(primary)
 				cells += 1
 				if y < world_size - 1:
-					move(North)
+					cmove(North)
 		else:
 			for y in range(world_size - 1, -1, -1):
 				companion_cell(primary)
 				cells += 1
 				if y > 0:
-					move(South)
+					cmove(South)
 		if x < world_size - 1:
-			move(East)
+			cmove(East)
 	if config.PRINT_GOAL_INTERVAL:
 		gained = num_items(item) - before
-		quick_print("COMPANION " + str(config.COMPANION_CROP) + " sweep: +" + str(gained) + " over " + str(cells) + " cells")
+		quick_print("COMPANION " + str(config.COMPANION_CROP) + " triplet: +" + str(gained) + " over " + str(cells) + " cells moves=" + str(companion_moves))
+
+# Stage 2 — chain-random. Following each plant's companion to the next plant cuts the
+# triplet's walk-back: we advance ONTO the companion tile and continue, harvesting old
+# satisfied links opportunistically when the wandering chain crosses them (tracked in a
+# dict). Because each link's companion is a DIFFERENT type, this is a MIXED-resource
+# optimizer (Hay+Wood+Carrot at once), unlike the single-crop triplet. A final cleanup
+# pass guarantees every still-pending satisfied tile is collected. First-cut + instrumented:
+# the marker reports gains, harvest count, moves and steps to compare against the triplet.
+
+def farm_companion_chain(seed_entity):
+	global companion_moves
+	update_amounts()
+	n = get_world_size()
+	companion_moves = 0
+	harvested = 0
+	# pend[x*n + y] = True means that tile holds a plant whose companion is now present
+	# (satisfied) and is awaiting a boosted harvest. Plain list (built with append) to
+	# avoid dict ops the game parser is finicky about.
+	size = n * n
+	pend = []
+	i = 0
+	while i < size:
+		pend.append(False)
+		i += 1
+	h0 = num_items(Items.Hay)
+	w0 = num_items(Items.Wood)
+	c0 = num_items(Items.Carrot)
+	goto_sw()
+	place(seed_entity)
+	budget = size * 4
+	steps = 0
+	while steps < budget:
+		steps += 1
+		ck = get_pos_x() * n + get_pos_y()
+		# Standing on a previously-satisfied link: collect it (boosted) if ripe.
+		if pend[ck]:
+			if can_harvest():
+				harvest()
+				harvested += 1
+			pend[ck] = False
+		comp = get_companion()
+		if comp == None:
+			# No plant here (e.g. just harvested a non-grass link) - reseed and retry once.
+			place(seed_entity)
+			comp = get_companion()
+			if comp == None:
+				break
+		comp_type = comp[0]
+		comp_pos = comp[1]
+		# The plant under us is now satisfied once we place its companion at comp_pos.
+		pend[ck] = True
+		goto_xy(comp_pos[0], comp_pos[1])
+		# Crossed an old satisfied link at the companion tile: collect before overwriting.
+		pk = get_pos_x() * n + get_pos_y()
+		if pend[pk]:
+			if can_harvest():
+				harvest()
+				harvested += 1
+			pend[pk] = False
+		place(comp_type)
+		# Advance: this tile (now comp_type) is the next link; loop reads its companion.
+
+	# Cleanup: harvest any satisfied tiles the chain never crossed again (guaranteed collect).
+	idx = 0
+	while idx < size:
+		if pend[idx]:
+			goto_xy(idx // n, idx % n)
+			if can_harvest():
+				harvest()
+				harvested += 1
+		idx += 1
+	if config.PRINT_GOAL_INTERVAL:
+		dh = num_items(Items.Hay) - h0
+		dw = num_items(Items.Wood) - w0
+		dc = num_items(Items.Carrot) - c0
+		quick_print("COMPANION chain: hay+" + str(dh) + " wood+" + str(dw) + " carrot+" + str(dc) + " harvested=" + str(harvested) + " moves=" + str(companion_moves) + " steps=" + str(steps))
 
 # --- Main Execution ---
 
@@ -885,7 +971,10 @@ while True:
 			quick_print('--------------------------------------------------------------------')
 			quick_print("Current Goal: Companion " + config.COMPANION_CROP)
 			quick_print('--------------------------------------------------------------------')
-		farm_companion(COMPANION_ENTITY_MAP[config.COMPANION_CROP])
+		if config.COMPANION_CHAIN:
+			farm_companion_chain(COMPANION_ENTITY_MAP[config.COMPANION_CROP])
+		else:
+			farm_companion(COMPANION_ENTITY_MAP[config.COMPANION_CROP])
 		continue
 
 	crop_choice = plant_decision()

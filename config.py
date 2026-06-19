@@ -19,6 +19,14 @@ FOCUS_CROP = None
 # Carrot companions cost a few wood/hay to place (dwarfed by the multiplier).
 COMPANION_CROP = None
 
+# Companion movement strategy (only matters when COMPANION_CROP is set):
+#   False = Stage 1 triplet: per tile place companion -> return -> harvest one crop type.
+#   True  = Stage 2 chain-random: follow each plant's companion to the next plant,
+#           harvesting old satisfied links as the chain crosses them. Fewer moves/harvest,
+#           but a MIXED-resource optimizer (yields Hay+Wood+Carrot together, not one crop).
+# COMPANION_CROP picks the seed plant for chain mode; the chain then wanders across types.
+COMPANION_CHAIN = False
+
 # How often to print the current goal (every N loops). Set to 1 to print every loop.
 # Set to 0 or None to disable.
 PRINT_GOAL_INTERVAL = 1
