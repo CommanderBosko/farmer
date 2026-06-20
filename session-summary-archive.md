@@ -1,5 +1,46 @@
 # Session Summary Archive — Farmer Bot
 
+## Session: 2026-06-01 — Crop transition clearing and MIN_WATER_LEVEL watering
+
+**Duration Estimate**: Single session (one commit batch)
+**Session Focus**: Harden crop transitions by clearing foreign entities before planting, fix a `till()` toggle bug that was producing Grassland instead of Soil, and add configurable pre-plant watering to all soil-based crop branches.
+
+### What Was Accomplished
+
+- Added harvest-if-ready + till + Soil-recheck pattern before every `plant()` call in the entity-clearing path — ensures any foreign crop occupying a cell is cleared before the new entity is planted.
+- Fixed the `till()` toggle bug: `till()` alternates between Soil and Grassland. An unconditional `till()` after a clearing step was bouncing a Soil cell back to Grassland. Added `if get_ground_type() != Grounds.Soil: till()` after the clearing till in every affected branch.
+- Applied the entity-clearing fix uniformly to: carrot branch, wood-tree diagonal, wood-carrot fill, pumpkin branch, and both passes of `farm_sunflower_strip()`.
+- Added `MIN_WATER_LEVEL = 0.5` to `config.py` — a new tunable threshold for pre-plant watering.
+- Added watering logic to carrot, wood-tree, wood-carrot-fill, and both `farm_sunflower_strip()` passes: after ensuring Soil, if `get_water() < config.MIN_WATER_LEVEL` and `Items.Water` is in inventory, call `use_item(Items.Water)`. Pumpkin's existing full-water-to-1.0 loop is left unchanged.
+
+### Files Changed
+
+- `main.py` — entity-clearing and water-check logic added to carrot, wood, pumpkin, and sunflower-strip branches.
+- `config.py` — added `MIN_WATER_LEVEL = 0.5` with explanatory comment.
+
+### Commits This Session
+
+- `fcb1269` — Fix crop transition clearing and add MIN_WATER_LEVEL watering for soil-based crops
+
+### Decisions Made
+
+- **Clearing pattern is harvest-if-ready + till + ground-recheck** — using `can_harvest()` before the clearing `till()` avoids discarding a harvestable yield; the ground-recheck after the clearing till handles the toggle edge case without assuming the cell's prior state.
+- **Pumpkin's water logic is untouched** — pumpkin requires a full 1.0 water level and already has a dedicated `while get_water() < 1: use_item(Items.Water)` loop; applying `MIN_WATER_LEVEL` to it would be a regression.
+- **MIN_WATER_LEVEL = 0.5 default** — a moderate default that waters about half-dry cells without burning water inventory on cells that are already reasonably moist.
+
+### Issues Encountered
+
+- The `till()` toggle was a subtle interaction: the first `till()` converts Grassland→Soil in preparation for planting, but a second unconditional `till()` (the entity-clearing step) could flip it back. The fix is to guard every `till()` with a ground type check.
+
+### Remaining / Next Session
+
+- Implement selection-sort inside `farm_sunflower_strip()` to restore max-petal-first harvesting without keyword arguments.
+- Run the bot from a fresh game save to verify the full prerequisite chain and the crop transition clearing in action.
+- Add `farm_dinosaur()` and wire it into `plant_decision()` once Cactus farming is confirmed stable at scale.
+- Consider whether `MIN_WATER_LEVEL` should also apply to a future Dinosaur/Bones crop branch.
+
+---
+
 ## Session: 2026-05-31 — Sunflower parallelization, MIN_PREREQ_STOCK bump, doc cleanup
 
 **Duration Estimate**: Short session (inferred from three tightly related commits)

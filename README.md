@@ -11,8 +11,12 @@ Active development. The bot is **unlock-driven**: `plant_decision()` runs an Ene
 floor, then steers all effort to whatever resource the next upgrade needs (any
 resource, dynamically), and only falls back to lowest-stock balancing once the tech
 tree is fully maxed. It runs **32-drone monoculture** — the fast path. A `simulate()`-based
-harness guards against resource-starvation regressions. Steering is now toward the final
-**Top_Hat** unlock (crop costs met; remaining bottleneck is Cactus and Gold).
+harness guards against resource-starvation regressions. Steering is toward **Top_Hat**, the
+**final** unlock (crop costs met; the live bottleneck is **Gold**). The gold/maze path is
+now **multi-drone** (`MAZE_DRONES` solvers around the field perimeter, default 32 — see
+Features), making the previously slowest goal ~2–5× faster. With the tree nearly complete,
+focus is shifting to **game achievements** (five unlocked, captured as the
+`achievement-hunter` skill) and Leaderboards.
 
 A full Polyculture **companion-farming** feature (`get_companion()`) was built this
 session but **measured ~19× slower** than 32-drone monoculture (single-drone can't beat
@@ -31,15 +35,18 @@ verified mechanic and a possible future multi-drone rebuild.
 - **Sunflower power farming**: Triggered when `Items.Power` drops below
   `MIN_POWER_STOCK`. Power doubles drone movement speed automatically. Parallelized
   across N drones via `farm_sunflower_strip()`.
-- **Maze farming**: Triggered when Gold is the lowest resource (and enough
-  `Items.Weird_Substance` is stockpiled for a run). Left-hand wall-following with a step-counter safety
-  valve; harvests `Items.Gold` from the treasure chest. Runs single-drone (sequential
-  wall-following cannot be split).
+- **Maze farming (parallel)**: Triggered when Gold is the resource being farmed (and
+  enough `Items.Weird_Substance` is stockpiled). `MAZE_DRONES` solvers (default 32) are
+  placed evenly around the field perimeter *before* the maze is grown (walls block
+  placement after), then all left-hand wall-follow the one maze at once; the entry point
+  nearest the treasure wins and harvests `Items.Gold`, and the rest bail the instant
+  `num_items(Gold)` jumps (coordination via the live-shared inventory, since drone globals
+  are copied). `MAZE_DRONES=1` is the original single-drone solve; `=4` is the four corners.
 - **Gold grinding mode**: Set `MIN_GOLD_STOCK > 0` to prioritize maze runs until a
   gold target is reached (for manually purchasing gold-cost upgrades).
 - **Multi-drone grid splitting**: `NUM_DRONES` (default 32) splits the grid across
-  parallel drones for Hay/Wood/Carrot/Pumpkin/Cactus/Sunflower. Maze is the only
-  single-drone strategy.
+  parallel drones for Hay/Wood/Carrot/Pumpkin/Cactus/Sunflower. Maze parallelism is
+  controlled separately by `MAZE_DRONES` (perimeter solvers); Bones runs single-drone.
 - **Auto-unlock purchasing**: `auto_unlocks()` buys the next unlock in the ordered
   progression whenever resources are sufficient.
 - **Crop transition clearing**: Before any `plant()` call, if the cell holds a foreign
@@ -92,7 +99,8 @@ Edit `config.py` before running:
 | `MIN_POWER_STOCK` | `5 000` | Switch to sunflower farming when power drops below this. |
 | `MIN_GOLD_STOCK` | `0` | Grind mazes until this much gold is accumulated (0 = inactive). |
 | `MIN_WATER_LEVEL` | `0.5` | Pre-plant water threshold for soil crops (carrot, wood, sunflower). `0.0` disables. |
-| `NUM_DRONES` | `32` | Parallel drones for farming. Capped to `world_size`. Maze/Bones always single-drone. |
+| `NUM_DRONES` | `32` | Parallel drones for grid farming. Capped to `world_size`. Maze uses `MAZE_DRONES`; Bones is single-drone. |
+| `MAZE_DRONES` | `32` | Solver drones spread around the perimeter for a gold/maze run. `1` = single-drone; `4` = four corners. Capped to 32 and the perimeter. |
 | `MIN_CARROT_FOR_PUMPKIN` | `100 000` | Carrot reserve the pumpkin path won't dip below (pumpkins cost 256 Carrot each). |
 | `MIN_CACTUS_FOR_BONES` | `100 000` | Cactus reserve required before a bones run (apples cost 64 Cactus each). |
 | `BONES_LOOP_INTERVAL` | `10` | Run bones at most once per this many outer loops. |
@@ -164,6 +172,24 @@ will not start and the game gives no error message.
 ---
 
 ## Recent Changes
+
+**2026-06-19 (PM) — Parallel maze gold, five achievements, `achievement-hunter` skill**
+
+- **Parallelized the gold/maze path** (`farm_maze()`, `config.MAZE_DRONES`, default 32):
+  `MAZE_DRONES` solvers are placed evenly around the field perimeter before the maze grows,
+  then race the one maze; nearest-to-treasure wins and harvests, losers bail when
+  `num_items(Gold)` jumps. Measured ~2× (4 drones) to ~4.7× (14) faster gold/sec. `=1`
+  falls back to the original single-drone solve; `=4` is the old four corners.
+- **Verified the multi-drone mechanics live first**: spawned drones start on the parent's
+  tile, globals are copied per drone (coordinate via world state), drones don't block each
+  other, and `num_items()` is a live shared inventory across drones.
+- **Power confound caught**: 32 drones measured *slower* than 14 only because
+  `FOCUS_CROP="Maze"` disables the energy floor and power hit 0 (half speed); with the floor
+  active (`FOCUS_CROP=None`) 32 ties/edges 14. Default `MAZE_DRONES=32`.
+- **Unlocked five game achievements** via throwaway `probe.py` scripts (5 hats on drones,
+  stack overflow, healer, circular import, wrong-order cacti) and captured the workflow as
+  the `achievement-hunter` skill. Hardened `throughput-ab` and `output-watcher` with the
+  power-confound and stale-variant (BOOT-marker) gotchas.
 
 **2026-06-19 — Polyculture companion farming: built, measured ~19× slower, shelved**
 

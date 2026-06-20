@@ -1,5 +1,31 @@
 _Older entries are in [session-summary-archive.md](session-summary-archive.md)._
 
+## Session: 2026-06-19 (PM) — Parallel maze gold (MAZE_DRONES), 5 achievements, achievement-hunter skill
+
+**Focus**: Make the slow gold/maze path multi-drone, then start unlocking game achievements.
+
+### What changed (and why)
+- **Parallel perimeter maze** (`farm_maze()`, `config.MAZE_DRONES`, default 32): replaced single-drone wall-following with `MAZE_DRONES` solvers spread evenly around the field edge — placed on open ground *before* the maze grows (walls block placement after), all racing the one maze; nearest-to-treasure wins and harvests, losers bail the instant `num_items(Gold)` jumps. `=1` single-drone fallback, `=4` = old four corners. Measured ~2× (4 drones) → ~4.7× (14) faster gold/sec.
+- **Verified the multi-drone mechanics live first** (4 probe rounds → `drone_mechanics` memory): spawned drones start on the parent's tile; globals are COPIED per drone (coordinate via world state, not globals); drones don't block each other; walls are `Entities.Hedge`; `num_items()` is a live shared inventory across drones (the loser-bail signal).
+- **5 achievements unlocked** via throwaway `probe.py` scripts: 5 hats on drones, stack overflow, healer (infect+cure with Weird_Substance), circular import (two scratch files importing each other), wrong-order cacti (full field sorted descending, 32-drone parallel).
+- **Skills**: built `achievement-hunter`; hardened `throughput-ab` + `output-watcher` with the power-confound and stale-variant (BOOT-marker) gotchas.
+
+### Decisions
+- Default `MAZE_DRONES=32` — the "32 slower than 14" result was a **power confound**: `FOCUS_CROP="Maze"` disables the energy floor, so 32 drones drained Power to 0 and ran at half speed. In production (`FOCUS_CROP=None`, floor active) 32 ties/edges 14. Benchmark drone-count scaling only with power maintained.
+- Achievement code stays in gitignored scratch (no commit); the user-confirmed popup is the real success signal, not the script's sentinel.
+
+### Issues / surprises
+- The "32 slower" false result — caught by the user (energy ran out mid-test). → `throughput-ab` gotcha.
+- Stale-variant contamination: the watcher fired on leftover 14-drone MEASURE lines (bot keeps writing across a config change that only reloads on restart). Fixed with a per-run `BOOT MAZE_DRONES=N` marker, count samples after it. → `output-watcher` gotcha.
+
+### Next session
+- Watch **Top_Hat** (the final upgrade) unlock — Gold is the bottleneck and the maze path is now faster.
+- Keep hunting achievements (`achievement-hunter`) + look at Leaderboards; add `trade(Items.Fertilizer)` auto-trade.
+
+**Commits**: `9ee5068..120e619` (4 commits, + this session close)
+
+---
+
 ## Session: 2026-06-19 — Polyculture companion farming: built, measured ~19x slower, shelved
 
 **Focus**: Implement Polyculture/`get_companion()` companion farming for crop yield, then decide whether it actually beats 32-drone monoculture.
@@ -131,46 +157,5 @@ _Older entries are in [session-summary-archive.md](session-summary-archive.md)._
 ### Remaining / Next Session
 - Decide pumpkin direction: minimal dead-pumpkin fix on the original logic vs. a properly-isolated mega-pumpkin retry that first solves the carrot/grid plow-thrash. Change one variable, watch one field.
 - Then resume the original goal: implement `farm_dinosaur()` / Bones farming (gates Polyculture Lvl 2).
-
----
-
-## Session: 2026-06-01 — Crop transition clearing and MIN_WATER_LEVEL watering
-
-**Duration Estimate**: Single session (one commit batch)
-**Session Focus**: Harden crop transitions by clearing foreign entities before planting, fix a `till()` toggle bug that was producing Grassland instead of Soil, and add configurable pre-plant watering to all soil-based crop branches.
-
-### What Was Accomplished
-
-- Added harvest-if-ready + till + Soil-recheck pattern before every `plant()` call in the entity-clearing path — ensures any foreign crop occupying a cell is cleared before the new entity is planted.
-- Fixed the `till()` toggle bug: `till()` alternates between Soil and Grassland. An unconditional `till()` after a clearing step was bouncing a Soil cell back to Grassland. Added `if get_ground_type() != Grounds.Soil: till()` after the clearing till in every affected branch.
-- Applied the entity-clearing fix uniformly to: carrot branch, wood-tree diagonal, wood-carrot fill, pumpkin branch, and both passes of `farm_sunflower_strip()`.
-- Added `MIN_WATER_LEVEL = 0.5` to `config.py` — a new tunable threshold for pre-plant watering.
-- Added watering logic to carrot, wood-tree, wood-carrot-fill, and both `farm_sunflower_strip()` passes: after ensuring Soil, if `get_water() < config.MIN_WATER_LEVEL` and `Items.Water` is in inventory, call `use_item(Items.Water)`. Pumpkin's existing full-water-to-1.0 loop is left unchanged.
-
-### Files Changed
-
-- `main.py` — entity-clearing and water-check logic added to carrot, wood, pumpkin, and sunflower-strip branches.
-- `config.py` — added `MIN_WATER_LEVEL = 0.5` with explanatory comment.
-
-### Commits This Session
-
-- `fcb1269` — Fix crop transition clearing and add MIN_WATER_LEVEL watering for soil-based crops
-
-### Decisions Made
-
-- **Clearing pattern is harvest-if-ready + till + ground-recheck** — using `can_harvest()` before the clearing `till()` avoids discarding a harvestable yield; the ground-recheck after the clearing till handles the toggle edge case without assuming the cell's prior state.
-- **Pumpkin's water logic is untouched** — pumpkin requires a full 1.0 water level and already has a dedicated `while get_water() < 1: use_item(Items.Water)` loop; applying `MIN_WATER_LEVEL` to it would be a regression.
-- **MIN_WATER_LEVEL = 0.5 default** — a moderate default that waters about half-dry cells without burning water inventory on cells that are already reasonably moist.
-
-### Issues Encountered
-
-- The `till()` toggle was a subtle interaction: the first `till()` converts Grassland→Soil in preparation for planting, but a second unconditional `till()` (the entity-clearing step) could flip it back. The fix is to guard every `till()` with a ground type check.
-
-### Remaining / Next Session
-
-- Implement selection-sort inside `farm_sunflower_strip()` to restore max-petal-first harvesting without keyword arguments.
-- Run the bot from a fresh game save to verify the full prerequisite chain and the crop transition clearing in action.
-- Add `farm_dinosaur()` and wire it into `plant_decision()` once Cactus farming is confirmed stable at scale.
-- Consider whether `MIN_WATER_LEVEL` should also apply to a future Dinosaur/Bones crop branch.
 
 ---
