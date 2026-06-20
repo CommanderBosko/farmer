@@ -83,3 +83,13 @@ summary, interpret pass/fail / where it died, and continue the workflow (e.g. na
   `sleep` is fine inside a backgrounded command (foreground `sleep` is blocked).
 - **Arm it last.** Arm the watcher right before telling the user to run the script, so
   it's listening when the run starts.
+- **mtime freshness fails when the producer keeps writing across a config change.**
+  Freshness-gating assumes the only thing touching `output.txt` is the run you want. But
+  when measuring the live bot across config variants, the *prior* variant keeps appending
+  until the restart, so the file stays fresh (`mtime > ARMED`) and the watcher fires on
+  stale prior-variant lines — even with every break condition mtime-gated (hit 2026-06-19:
+  the "32-drone" capture was byte-identical to the 14-drone one). When the question is
+  "which RUN produced this," mtime isn't enough: have the script print a one-time startup
+  marker carrying the variant's identity (e.g. `BOOT MAZE_DRONES=32`), gate on that exact
+  fresh marker, and count only lines after it (`awk '/BOOT .../{f=1;next} f&&/MEASURE/{c++}'`)
+  — not sample-count + mtime.

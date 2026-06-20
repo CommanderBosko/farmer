@@ -88,3 +88,21 @@ config comments / memory with the measured numbers — wrong perf claims are wor
 - **Config reloads only on restart.** `import config` is cached in the running script;
   each variant needs a main.py restart to take effect (the user does this).
 - **Same goal both runs.** Different `FOCUS_CROP` between variants invalidates the A/B.
+- **Watch for resource confounds (especially Power).** If the variants consume a
+  *speed-affecting* resource at different rates, you measure starvation, not the variable.
+  Concretely (2026-06-19): more maze drones drain `Items.Power` (which doubles drone speed)
+  faster, and `FOCUS_CROP="Maze"` *disables the energy floor* — so power hit 0 and the
+  32-drone variant ran at HALF speed, measuring "slower" than 14 (a pure artifact; in
+  `FOCUS_CROP=None` with the floor maintaining power, 32 tied/beat 14). Fix: A/B in
+  production conditions (`FOCUS_CROP=None`, energy floor active), and ADD the resource to
+  the MEASURE line (`power=" + str(num_items(Items.Power))`) to confirm it never bottoms
+  out. "Same goal" isn't enough — you need the same *resource economy* too.
+- **mtime freshness alone can't separate variants — gate on a per-run BOOT marker.** The
+  prior variant's bot keeps running and appending MEASURE lines until the restart, so
+  `mtime > ARMED` stays true on STALE lines and the watcher fires on variant A's data while
+  you think it's B (tell: byte-identical first samples across "two" runs). Print a one-time
+  startup marker carrying the variant's config value before the loop — e.g.
+  `quick_print("BOOT MAZE_DRONES=" + str(config.MAZE_DRONES))` — gate on seeing the
+  *expected* value fresh, and count only MEASURE lines AFTER it
+  (`awk '/BOOT MAZE_DRONES=32/{f=1;next} f&&/MEASURE/{c++}'`). Also skip the run's initial
+  transient (e.g. a power rebuild from 0) before computing the rate.
