@@ -591,10 +591,10 @@ def maze_goto(tx, ty):
 
 def maze_solver(gold_start):
 	# Left-hand wall-follow from the drone's current tile to the single Treasure.
-	# Spawned at a corner BEFORE the maze grows: pre-maze it harmlessly circles on
-	# open ground, then follows walls once they appear (verified live). Bails the
-	# instant another drone harvests the treasure — num_items(Items.Gold) is a LIVE
-	# SHARED inventory across drones (verified live), so the loser tail is ~0 steps.
+	# Spawned at a perimeter point BEFORE the maze grows: pre-maze it harmlessly
+	# circles on open ground, then follows walls once they appear (verified live).
+	# Bails the instant another solver harvests the treasure — num_items(Items.Gold)
+	# is a LIVE SHARED inventory across drones (verified), so the loser tail is ~0.
 	# Directions cycle: North=0, East=1, South=2, West=3.
 	n = get_world_size()
 	DIRS = [North, East, South, West]
@@ -647,6 +647,19 @@ def farm_maze_single(n_substance):
 
 	clear()
 
+def maze_perimeter_pos(t, n):
+	# Map perimeter index t in [0, 4*(n-1)) to an (x, y) edge tile, walking the
+	# border: bottom W->E, right S->N, top E->W, left N->S. Index 0 is the origin
+	# (0, 0). Used to spread solver drones evenly around the field edge.
+	side = n - 1
+	if t < side:
+		return [t, 0]
+	if t < 2 * side:
+		return [side, t - side]
+	if t < 3 * side:
+		return [side - (t - 2 * side), side]
+	return [0, side - (t - 3 * side)]
+
 def farm_maze():
 	# Determine how much Weird_Substance to use for this maze
 	n_substance = get_world_size() * 2 ** (num_unlocked(Unlocks.Mazes) - 1)
@@ -656,25 +669,34 @@ def farm_maze():
 		return
 
 	n = get_world_size()
-	if not config.MAZE_FOUR_CORNER or n < 2:
+	perimeter = 4 * (n - 1)
+	num_solvers = config.MAZE_DRONES
+	if num_solvers > 32:
+		num_solvers = 32
+	if num_solvers > perimeter:
+		num_solvers = perimeter
+	if num_solvers < 2 or n < 2:
 		farm_maze_single(n_substance)
 		return
 
-	# Four-corner parallel solve. Walk to each of three corners on the still-open
-	# grid and spawn a solver in place; then grow the maze from the fourth corner
-	# (origin) and solve from there too. All four wall-follow the one maze at once;
-	# the corner nearest the treasure wins and harvests, the rest bail immediately.
+	# Parallel perimeter solve. Drop a solver at num_solvers points evenly spaced
+	# around the field edge (on open ground, BEFORE the maze exists — walls would
+	# block placement afterwards), then grow the maze from the origin and solve from
+	# there too. Every solver wall-follows the one maze; whichever's entry point sits
+	# nearest the treasure on the wall-following circuit wins and harvests, and the
+	# rest bail the instant num_items(Gold) jumps. More points = shorter worst-case
+	# arc = faster, with diminishing returns. (num_solvers == 4 lands on the corners.)
 	gold_start = num_items(Items.Gold)
 	clear()
 
-	maze_goto(n - 1, 0)
-	d1 = spawn_drone(maze_solver, gold_start)
-	maze_goto(n - 1, n - 1)
-	d2 = spawn_drone(maze_solver, gold_start)
-	maze_goto(0, n - 1)
-	d3 = spawn_drone(maze_solver, gold_start)
+	drones = []
+	for i in range(1, num_solvers):
+		t = i * perimeter // num_solvers
+		p = maze_perimeter_pos(t, n)
+		maze_goto(p[0], p[1])
+		drones.append(spawn_drone(maze_solver, gold_start))
 
-	# Parent: origin corner, grow the maze from a bush, then solve from here
+	# Parent: origin (perimeter index 0), grow the maze from a bush, then solve here
 	maze_goto(0, 0)
 	if get_entity_type() != Entities.Bush:
 		if get_ground_type() != Grounds.Grassland:
@@ -683,9 +705,8 @@ def farm_maze():
 	use_item(Items.Weird_Substance, n_substance)
 	maze_solver(gold_start)
 
-	wait_for(d1)
-	wait_for(d2)
-	wait_for(d3)
+	for d in drones:
+		wait_for(d)
 
 	# Reset farm to a clean farmable state regardless of outcome
 	clear()
