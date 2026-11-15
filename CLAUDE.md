@@ -29,6 +29,10 @@ Before doing a task by hand, check whether an existing skill already covers it a
 
 When you need a decision, choice, or clarification from the user — not just information you can look up yourself — use the **AskUserQuestion** tool rather than asking in plain text. Phrase it as 2-4 concrete options (with a recommended one first); when the answer could be open-ended, the tool's built-in "Other" choice covers free text. This keeps answers structured, makes trade-offs explicit, and avoids an answer getting buried in prose. Reserve plain-text questions for genuinely open, generative prompts where no sensible options exist yet (e.g. "describe the project in your own words").
 
+## Read Everything Before Editing
+
+Before changing anything, list every file you'll need and read them in one pass. Then make all edits, then run the validation tests.
+
 ## Running
 
 ```bash
