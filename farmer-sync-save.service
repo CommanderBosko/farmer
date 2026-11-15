@@ -1,0 +1,10 @@
+[Unit]
+Description=Copy Farmer repo scripts into the game's Save0 (one-way, see sync_save.py)
+
+[Service]
+ExecStart=/run/current-system/sw/bin/python3 /home/bosko/projects/farmer/sync_save.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

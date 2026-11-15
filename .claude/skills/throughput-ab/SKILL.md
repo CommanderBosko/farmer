@@ -32,8 +32,8 @@ per-target and total:
 	quick_print("MEASURE t=" + str(get_time()) + " wood=" + str(num_items(Items.Wood)) + " hay=" + str(num_items(Items.Hay)) + " carrot=" + str(num_items(Items.Carrot)))
 ```
 Syntax-check (`python -c "import ast; ast.parse(open('main.py').read())"`). Do NOT commit
-this; it's working-tree-only and removed at the end. The game runs the symlinked
-working-tree `main.py`, so no regen needed for the measurement.
+this; it's working-tree-only and removed at the end. The game runs the `main.py` that the
+`farmer-sync-save` watcher copies from the working tree, so no regen needed for the measurement.
 
 ### 2. Force the SAME goal for both variants
 Pin the goal so both variants farm the identical resource — usually `FOCUS_CROP="<Crop>"`

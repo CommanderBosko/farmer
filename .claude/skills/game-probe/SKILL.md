@@ -16,9 +16,11 @@ what it prints. You cannot run the game yourself — the user does.
 - Probe script (edit this): `/home/bosko/projects/farmer/probe.py`
 - Game output (read this): `$HOME/.local/share/Steam/steamapps/compatdata/2060160/pfx/drive_c/users/steamuser/AppData/LocalLow/TheFarmerWasReplaced/TheFarmerWasReplaced/output.txt`
 
-`probe.py` is symlinked into the game's `Save0/`, so writing it **auto-syncs into
-the game — no copy/paste**. `output.txt` is **overwritten every run** (only the
-latest run is there).
+`probe.py` is a real file in the game's `Save0/`, copied from the repo by the
+`farmer-sync-save` systemd user service (`sync_save.py`) on every change, so writing it
+**auto-syncs into the game — no copy/paste**. (It is deliberately NOT a symlink: the
+game's atomic save fails on symlinks with "Not same device" — see [[game-file-sync]].)
+`output.txt` is **overwritten every run** (only the latest run is there).
 
 ## Steps
 
@@ -31,11 +33,14 @@ latest run is there).
 2. **If `probe` isn't registered in-game yet** (first use, or it never existed),
    tell the user to create a file named `probe` in-game once and reload the save
    (the game caches its file list at load — see the `game-file-sync` memory). After
-   that, edits auto-sync. Confirm the symlink exists:
+   that, edits auto-sync. Confirm the real file exists and the watcher is up:
    ```bash
    ls -la "$HOME/.local/share/Steam/steamapps/compatdata/2060160/pfx/drive_c/users/steamuser/AppData/LocalLow/TheFarmerWasReplaced/TheFarmerWasReplaced/Saves/Save0/probe.py"
+   systemctl --user is-active farmer-sync-save.service
    ```
-   If missing: `ln -sf /home/bosko/projects/farmer/probe.py "<Save0>/probe.py"` (game closed), then reload.
+   If the file is missing: `python3 /home/bosko/projects/farmer/sync_save.py --add probe.py`
+   (copies it into Save0 as a real file — never `ln -s`), then reload the save. If the
+   service isn't active: `systemctl --user start farmer-sync-save.service`.
 
 3. **Warn first if the snippet is destructive.** Read-only calls (`num_items`,
    `get_cost`, `get_world_size`, enum dumps) are safe. Calls that change live state

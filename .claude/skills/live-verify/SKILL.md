@@ -9,7 +9,7 @@ Prove a code change is live in the RUNNING bot (not just edited on disk) by rest
 
 ## Steps
 1. Pick a marker the NEW behavior prints that the OLD code never did — e.g. a new goal-line substring (`for Unlock:`, `Bones for Unlock`), an `Unlocked <X>` line, or a new sentinel. It must be unique to the change so it can't false-match old output.
-2. Tell the user to RESTART the bot. A running script does not reload edited `main.py` even though the file symlink syncs the change — only a restart loads the new code.
+2. Tell the user to RESTART the bot. A running script does not reload edited `main.py` even though the `farmer-sync-save` watcher syncs the change — only a restart loads the new code.
 3. Arm the `output-watcher` skill for that marker, sentinel-only. The live bot writes output.txt every loop, so a settle/quiet fallback would false-fire during long maze/bones runs; only add settle if the change could crash the bot.
 4. When the watcher reports, confirm the new behavior is present. If the marker never appears within a reasonable window after a confirmed restart, suspect the changed code errored live — check the in-game error and the last lines of output.txt.
 

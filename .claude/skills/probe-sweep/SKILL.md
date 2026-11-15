@@ -25,7 +25,7 @@ Edit `/home/bosko/projects/farmer/probe.py` to exercise the parameter, and:
 - `quick_print` a marker **every iteration** (e.g. `quick_print("lap " + str(lap) + " tail " + str(tail) + " ...")`) so that if the run dies, the last marker **pins the exact failure point**.
 - Always include a **safety bound** on the loop (a hard cap on iterations) so the probe can never run away into a catastrophic state.
 - End with a **sentinel** (`quick_print("DONE")`) and the result line so a clean finish is unambiguous.
-- `probe.py` is symlinked into the game's `Save0/`, so edits **auto-sync — no copy/paste**.
+- `probe.py` is copied into the game's `Save0/` by the `farmer-sync-save` watcher, so edits **auto-sync — no copy/paste**.
 
 ### 3. Syntax-check
 ```bash

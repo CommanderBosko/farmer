@@ -28,16 +28,19 @@ plays "The Farmer Was Replaced"; the harness uses the in-game `simulate()` funct
    ```
 
 2. **Confirm the sim files are synced into the game.** `bench` and `bench_main`
-   must be symlinked in the game's Save0 (see [[game-file-sync]] memory). Check:
+   must exist as real files in the game's Save0, kept in sync by the
+   `farmer-sync-save` user service (see [[game-file-sync]] memory). Check:
    ```bash
    ls -la "$HOME/.local/share/Steam/steamapps/compatdata/2060160/pfx/drive_c/users/steamuser/AppData/LocalLow/TheFarmerWasReplaced/TheFarmerWasReplaced/Saves/Save0/" | grep -E 'bench'
+   systemctl --user is-active farmer-sync-save.service
    ```
-   If a symlink is missing, create it (game closed, then reload save to register a
-   brand-new file): `ln -sf /home/bosko/projects/farmer/<name>.py "<Save0>/<name>.py"`.
+   If a file is missing, copy it in (never symlink — the game's save fails on symlinks):
+   `python3 /home/bosko/projects/farmer/sync_save.py --add <name>.py`, then reload the
+   save to register a brand-new file.
 
 3. **Ask the user to run `bench` in-game** and say "done". You cannot run it
-   yourself. (Regenerated content auto-syncs via the symlink; no reload needed
-   unless the file is brand new.)
+   yourself. (Regenerated content auto-syncs via the watcher within ~1s; no reload
+   needed unless the file is brand new.)
 
 4. **Read and interpret the result** from output.txt (grep past game warning spam):
    ```bash

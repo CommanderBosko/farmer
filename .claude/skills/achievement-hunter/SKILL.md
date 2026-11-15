@@ -13,8 +13,8 @@ ran without crashing.
 
 ## Key paths (baked in)
 
-- Probe script (edit this): `/home/bosko/projects/farmer/probe.py` — symlinked into
-  the game's `Save0/`, so writing it **auto-syncs into the game** (no copy/paste).
+- Probe script (edit this): `/home/bosko/projects/farmer/probe.py` — copied into
+  the game's `Save0/` by the `farmer-sync-save` watcher, so writing it **auto-syncs into the game** (no copy/paste).
 - Two already-registered scratch target files (for multi-file achievements like an
   import cycle): `/home/bosko/projects/farmer/probe_target_a.py` and
   `/home/bosko/projects/farmer/sim_probe_target.py`.
