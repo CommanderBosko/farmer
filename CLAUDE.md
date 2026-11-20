@@ -157,7 +157,7 @@ This is a farming automation bot for a game. The game injects its own API at run
 
 ### Scripting gotchas
 
-**Grid traversal off-by-one** — `move()` does NOT wrap. Always guard the final step:
+**Grid traversal off-by-one** — `move()` was long believed NOT to wrap, but Probe F (2026-11-12, underground) showed it DOES wrap in this build (from x=16, 40 steps East ended at x=24, i.e. 56 mod 32); surface behaviour is unverified. Either way, guard the final step so a loop never depends on wrapping:
 ```python
 for y in range(world_size):
     # ... work ...
