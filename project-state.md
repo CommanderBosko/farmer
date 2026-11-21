@@ -1,6 +1,6 @@
 # Project State — Farmer Bot
 
-Last updated: 2026-06-19
+Last updated: 2026-11-20
 
 ---
 
@@ -8,12 +8,11 @@ Last updated: 2026-06-19
 
 The bot is an **unlock-driven, set-and-forget** agent: it pours all effort into whatever
 the next upgrade needs, and only balances resources once the tech tree is fully maxed. It
-runs **32-drone monoculture** — the fast path. Steering is toward **Top_Hat** — the **final
-upgrade** in the tree (1B Hay + 10B Wood + 1B Carrot + 1B Cactus + 100M Gold); crop stocks
-are at/above target, so the live bottleneck is **Gold** (the bot was last seen "Current
-Goal: Gold for Unlock: Top_Hat"). Polyculture keeps auto-leveling (now ×160).
+runs **32-drone monoculture** — the fast path. As of the 2026-06-19 session it was steering toward **Top_Hat** (live bottleneck Gold); the DLC memory notes record the base tree as fully maxed by 2026-11-12 (Top_Hat itself was not re-verified, and Gold now stands at ~24.4M). Polyculture keeps auto-leveling (now ×160).
 
-**This session** parallelized the slow gold/maze path and started knocking out **game
+**DLC "mining module" — the active project (2026-11-12 → 2026-11-20; `main.py` / `config.py` UNTOUCHED by design).** Goal: extend the bot so `FOCUS_CROP=None` clears every *automatable* "Miner Was Replaced" DLC unlock unattended (brief approved via /interview + brief-reviewer; standing decision 2026-11-13: finish probing every resource before writing any bot code). All work so far is throwaway `probe.py` scripts (backups in `~/farmer-save-backups/`); verified mechanics and numbers live in the Claude memory notes `reference_mining_mechanics` and `project_mining_module_status`. Measured single-drone rates (game-seconds): **Coal 2.28/s** (Ore_Boost doubles coal per dig; 0.77/s without — the earlier 1.84 was a lucky 3-sample), **Iron 1.81/s** (Ore_Boost makes veins ~×1.5), **Quartz ~0.16/s**, **Rice ~10.8/s** (8 per clay tile at Rice L4), **Mushroom** +1 per same-type merge: 1.24/s hunting only, ~0.27/s with tile uncovering, ~0.16/s including the world search (stratum exists in only ~30% of worlds, 4–6 layers, depth varies z=-38…-72), **Dynamite** = a minesweeper puzzle (+1 per dud, a safe zero flood-fill clears ~190–300 tiles in ~17–33 s; est. ~10k per fully solved board), **Bamboo** L1 ~103 per plant (L2 and multi-drone not yet measured). Unlocks bought this stretch: Ore_Boost (single level) and Dynamite L1 (next level 400 Mushroom); Mushrooms L2 (600 Gold) and the cheap levels are deliberately not bought yet. **Blocked list (user-approved 2026-11-20): Explosive_Drill** (120,000 Mushroom + 12,000,000 Dynamite). Stock: Coal 823, Iron 132, Quartz 5, Block 5002, Mushroom 5, Gold ~24.4M, Rice 627, Bamboo 112, Dynamite 488. **Paused with probe B1 (multi-drone surface Bamboo + Bamboo L2) written, mock-tested and synced into the game but NOT run** — exact resume steps are in the memory note `project_mining_module_status`.
+
+**Previous session (2026-06-19)** parallelized the slow gold/maze path and started knocking out **game
 achievements** (Achievements/Leaderboards are the new post-tree goal). Gold farming went
 from a single drone wall-following one maze to **`MAZE_DRONES` solvers spread around the
 field perimeter** racing the same maze — measured ~2× (4 drones) up to ~4.7× (14 drones)
@@ -56,10 +55,7 @@ captured as the new `achievement-hunter` skill.
   verified mechanic / a possible future multi-drone rebuild. NOT in use.
 - **Tooling**: `simulate()` no-starvation bench harness; 13 project skills (see below).
 
-**In progress (grinding toward the goal):**
-- **Top_Hat** — the active steer. Crop costs (Hay/Wood/Carrot) appear met; remaining
-  shortfall is **Cactus (1B)** and **Gold (100M)**, so steering should be running cactus
-  and maze. Confirm the live bottleneck next session (`unlock-status`).
+**In progress:** the DLC mining module above (probe phase; B1 Bamboo run next). The June "grind Top_Hat" item is stale — see the first paragraph.
 
 **Broken / not done:**
 - **Pumpkin giant-merge** not optimized — dead pumpkins are now cleared, but the per-tile
@@ -72,12 +68,11 @@ captured as the new `achievement-hunter` skill.
 ## Current Goals
 
 ### Short-term (next 1–3 sessions)
-1. Confirm Top_Hat's remaining bottleneck live (`unlock-status`) — expected **Cactus**
-   then **Gold** — and that steering is grinding them. Then watch Top_Hat unlock.
-2. **Auto-trade fertilizer** — add `trade(Items.Fertilizer)` so weird substance (→ Gold
-   via maze) is self-sustaining; today there's *no* trade logic, so substance only comes
-   from spending the ~1.54M fertilizer stockpile. Matters now that Gold is a bottleneck.
-3. Optional: pumpkin giant-merge take 2.
+1. **Run probe B1** (multi-drone surface Bamboo + Bamboo L2 yield) and design the parallel Bamboo farm — Bamboo gates Mining L5, Petrified L2, Special_Soils, Debug_Place, Pyramid, Treasure_Map and the Leaderboard.
+2. Optional **probe D2** (full minesweeper solve of a Dynamite board: deduction rules, edge wrapping, cash-out by hitting a known live block) — only the Underground_Leaderboard's 20,000 Dynamite needs it.
+3. **Ask before buying** the cheap levels (Iron L4 {Coal 450}, Rice L5 {Block 2000}, Coal L3 {Rice 1000}, Quartz L2 {Iron 200}, Bamboo L3 {Rice 800}, Mushrooms L2 {Gold 600}, Dynamite L2 {Mushroom 400}) — Mushrooms/Dynamite L2 yield effects are untested.
+4. **Then implement DLC support in `main.py`**: dispatch mining BEFORE the 32-drone `farm_grid` branch, retry loops for the random Coal/Mushroom/Dynamite strata, a time-based stall watchdog, runtime unlock enumeration, the blocked list (Explosive_Drill), base-stock floors; verify with /syntax-check, /bench, /live-verify, /unlock-status, commit via /ship-change.
+5. Carried over (base game, low priority now that Gold ≈ 24M, Weird_Substance ≈ 55M, Fertilizer ≈ 120k): `trade(Items.Fertilizer)` auto-trade; pumpkin giant-merge take 2.
 
 ### Long-term
 - Fully hands-off completion of the tech tree with no manual levers, then steady-state balance forever.
@@ -91,6 +86,12 @@ captured as the new `achievement-hunter` skill.
 
 | Date | Decision | Rationale |
 |---|---|---|
+| 2026-11-20 | Explosive_Drill (120k Mushroom + 12M Dynamite) goes on the blocked list | Its Mushroom cost alone is >= 27–111 game-h single-drone (<= ~3,072 merges per stratum world, so >= 40 worlds); user approved after seeing the measured rates |
+| 2026-11-20 | Parallelize surface Bamboo across the existing 32-drone column split; "no multi-drone mining" stays for underground work only | Bamboo is a surface crop and gates the most unlocks (252k+ Bamboo); single drone ~12 game-h for the Leaderboard alone, 32 drones ~25 game-min |
+| 2026-11-20 | Buy Dynamite L1 (4,000 Gold + 80 Mushroom), then probe it | Dynamite gates the Leaderboard (20k) and Explosive_Drill; its production mechanic was unknown until bought (docs page unlocks with it). Gold was already ~24.4M, so no maze step was needed |
+| 2026-11-20 | Measure each Mushroom tile right before use (lazy per-well uncovering) instead of surveying a whole patch first | A full survey cost ~1.2 game-s/tile and 19% of its later pushes failed on stale types; measuring seconds before use gave 43/43 merges with 0 stale readings |
+| 2026-11-20 | Treat 3-sample rates as provisional; re-measure before sizing | Coal L2 read 1.84/s over 3 attempts but 0.77/s over 7 (sheets appear in ~30–50% of worlds) |
+| 2026-11-13 | Finish probing every DLC resource before writing any bot code; agree the blocked list from measured run-times | Avoids building routines around guessed mechanics; every verified mechanic is saved to memory first |
 | 2026-06-18 | Steer to the next unlock's bottleneck resource, not lowest-stock, while unlocks remain | User's model: pour everything into the upgrade being chased; balance only after all unlocks are maxed |
 | 2026-06-18 | While steering to an unlock, no throttle/no balance fallback | Falling back to balance farmed off-task resources (e.g. Gold) that weren't needed for the unlock |
 | 2026-06-18 | `auto_unlocks` buys any affordable unlock (full cost dict) | Old single-`required_item` check silently skipped bones-cost/multi-resource unlocks (Polyculture, Top_Hat, Remains) |
@@ -110,6 +111,10 @@ captured as the new `achievement-hunter` skill.
 
 ## Known Issues / Tech Debt
 
+- **`main.py` has no DLC support** — with `FOCUS_CROP=None` the unlock steering meets DLC costs in unmapped resources (Block/Coal/Iron/Quartz/Mushroom/Rice/Bamboo/Dynamite) and would stall until the mining module is built.
+- **DLC strata are random per world**: Mushroom stratum in ~30% of worlds (retry loop ~4 tries x ~30 game-s), Coal sheets in ~30–50% of scans, Dynamite stratum depth varies (-62 / -205 seen); the bot needs clear()/pit/check retry loops and a time-based (not loop-count) stall watchdog.
+- **Unverified/unwritten**: Bamboo L2 effect and multi-drone Bamboo behaviour (probe B1 pending); Mushrooms L2 / Dynamite L2 yield effects; a Dynamite board solver (edge wrapping of `measure()` untested); whether Mushroom tile types really drift over tens of seconds.
+- **Probe tooling pitfalls**: the output watcher's quiet-period fallback must be >= 450 s (the game can run slow in real time, one 150 s fallback fired early); the user sometimes re-runs the loaded probe between steps, so check `output.txt` contents/mtime before assuming a result is yours; keep probe top-level names distinct from function locals (an earlier probe died silently otherwise).
 - **No fertilizer auto-trade** — weird substance (→ Gold) only regenerates from spending
   the fertilizer stockpile (~1.54M); no `trade()` exists anywhere, so if fertilizer hits
   0 the Gold/substance path stalls (the gold-steer branch falls through rather than
@@ -137,13 +142,12 @@ captured as the new `achievement-hunter` skill.
 
 ## Next Steps
 
-1. Watch **Top_Hat** (the final upgrade) unlock — Gold is the live bottleneck and the maze
-   path is now ~2–5× faster. (`output-watcher` for the `Unlocked Top_Hat` line.)
-2. Keep working through **achievements** (use the new `achievement-hunter` skill) and look
-   at **Leaderboards** — the post-tree goal.
-3. Add `trade(Items.Fertilizer)` auto-trade so the Gold/substance chain is self-sustaining
-   (load-bearing since Gold is the remaining Top_Hat bottleneck).
-4. Pumpkin giant-merge take 2 — change one variable, watch one field in-game.
+**Session 2026-11-20 next steps:**
+1. **Resume at probe B1**: confirm the game is up and the live bot is stopped, check `head -1 probe.py` says probe B1 (else `cp ~/farmer-save-backups/probe-B1-bamboo-multidrone.py probe.py`), arm the output-watcher (sentinel `BAMBOO_B1_DONE`, settle >= 450 s), have the user run `probe`, then read EXP A (Bamboo L2 fruit pattern/cap/yield vs L1's ~103 per plant), EXP B (single-drone Bamboo/game-s on a 16-plant lane), EXP C1/C2 (4 and 16 spawned drones: scaling and Power before/after).
+2. Design the parallel Bamboo farm from B1's result (plant column + free lane per drone, pluck until capped, harvest, replant).
+3. Optional probe D2 (Dynamite minesweeper solve) for the Leaderboard's 20,000 Dynamite; ask before buying the cheap levels listed under Goals.
+4. Then build the DLC support in `main.py` and verify per the brief (blocked list = Explosive_Drill).
+5. Carried over: `trade(Items.Fertilizer)` auto-trade and pumpkin giant-merge take 2 (both low priority now); achievements/Leaderboards remain the post-tree goal.
 
 ---
 

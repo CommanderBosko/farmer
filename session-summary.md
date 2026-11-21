@@ -1,5 +1,35 @@
 _Older entries are in [session-summary-archive.md](session-summary-archive.md)._
 
+## Session: 2026-11-20 — DLC mining probes: coal/iron/mushroom/dynamite characterised, Dynamite bought, Bamboo probe staged
+
+**Focus**: Resume the DLC "mining module" probe project (paused 2026-11-15) and measure every remaining resource so the blocked list can be agreed before any bot code is written.
+
+### What changed (and why)
+- **Only repo change: `257c70b`** — CLAUDE.md's "move() does NOT wrap" gotcha corrected (Probe F showed it wraps; surface behaviour unverified). `main.py`/`config.py` untouched on purpose (2026-11-13 decision: finish probing first). Everything else was throwaway `probe.py` runs; results, mechanics and the exact resume point are in the Claude memory notes (`reference_mining_mechanics`, `project_mining_module_status`), probes in `~/farmer-save-backups/`.
+- **Coal/Iron:** Coal L2 re-measured at 0.77/s (n=7; the earlier 1.84 was a lucky 3-sample). Bought **Ore_Boost** (200 Coal/100 Iron/20 Quartz, single level): it doubles coal per dig (2.28/s) and makes iron veins ~×1.5 (1.81/s).
+- **Mushrooms (5 probes):** the stratum exists in only ~30% of worlds, is 4–6 blocks thick, depth varies (z=-38…-72); a push that stacks two same-type blocks = +1 Mushroom and exposes the next layer. A "well" solver reached 1.24/s hunting-only but ~0.16/s overall. M3's 19% failed pushes were stale surveyed types — measuring each tile right before use gave 43/43 merges. `place(Grounds.Dirt)` works (1 Block). Gold turned out to be ~24.4M, so no maze step was needed.
+- **Dynamite:** bought L1 (4,000 Gold + 80 Mushroom; next level 400 Mushroom). The docs page showed it's a **minesweeper** (soot `measure()` = live neighbours); a safe zero flood-fill cleared 188–300 tiles in 17–33 s at +1 per dud, 0 explosions; estimate ~10k Dynamite per fully solved board (squared live-block bonus).
+- **Close-out tooling:** `session-closer` found no project `secret-scan` skill, so one was generated with `create-secret-scan` (no dedicated scheme, full-history scan on); it is the scan used for this close.
+- **Bamboo:** wrote and mock-tested probe **B1** (one plant at L2, then one drone and 4/16 spawned drones on 16/8-plant lanes), synced into the game but **not run** — the user ended the day.
+
+### Decisions
+- **Explosive_Drill (120k Mushroom + 12M Dynamite) → blocked list**, user-approved: its Mushroom cost alone is >= 27–111 game-hours single-drone.
+- **Parallelize surface Bamboo** over the existing 32-drone column split (Bamboo gates the most unlocks); underground work stays single-drone.
+- Buy Dynamite then probe it; ask before buying the cheap levels (Mushrooms/Dynamite L2 yield effects untested).
+
+### Issues / surprises
+- The 1.84 coal/s figure and M3's survey-based types were both artifacts of small or stale samples; the output watcher's 150 s quiet fallback fired during a slow-real-time stretch (use >= 450 s); the user re-ran the loaded probe twice between steps (extra free data, but check output.txt before assuming a result is mine).
+- One memory edit batch failed atomically on a wrong anchor (redone); a mock bug (z not changing during the pit) briefly looked like a probe bug.
+
+### Next session
+- Resume at probe B1 (steps in `project_mining_module_status` memory and `project-state.md` Next Steps), design the parallel Bamboo farm, optional Dynamite solver probe D2, then build DLC support in `main.py`.
+
+**Commits**: `257c70b` (1 commit this session; the baseline range `21e262b..257c70b` also spans 3 earlier unclosed commits, e.g. the 2026-11-15 Save0 sync fix, not narrated here)
+
+Secret-scan: clean (tree + 78 commits via the new project-local `secret-scan` skill; encrypted-secret pass skipped — no scheme; `.gitignore` is missing `.env`, `*.pem`, `*.key` — informational only).
+
+---
+
 ## Session: 2026-06-19 (PM) — Parallel maze gold (MAZE_DRONES), 5 achievements, achievement-hunter skill
 
 **Focus**: Make the slow gold/maze path multi-drone, then start unlocking game achievements.
@@ -126,36 +156,3 @@ _Older entries are in [session-summary-archive.md](session-summary-archive.md)._
 
 ---
 
-## Session: 2026-06-13 — Pumpkin rework explored and reverted (net: no main change)
-
-**Duration Estimate**: Single session, exploratory
-**Session Focus**: Started toward Dinosaurs/Bones, pivoted to fixing pumpkin farming after observing it ran out of carrots and left dead pumpkins; attempted a full mega-pumpkin rework, then reverted everything to start-of-day after it behaved worse in-game.
-
-### What Was Accomplished
-- Diagnosed the carrot-shortage-during-pumpkin-planting bug and shipped a guard (`MIN_CARROT_FOR_PUMPKIN`) — later reverted with everything else.
-- Researched and documented the **real pumpkin mechanic** (wiki + community): ~20% of pumpkins die the instant they finish growing; a square only merges into a giant when EVERY tile is fully grown AND alive simultaneously; `plant(Entities.Pumpkin)` auto-replaces a dead/ungrown pumpkin (no harvest/till first); planting pumpkins costs Carrots; `Entities.Dead_Pumpkin` is the dead-tile entity.
-- Iterated through four pumpkin designs (sweep-based non-blocking → dead-pumpkin replant loop → mega-pumpkin field convergence → multi-drone strips). Each was tested in-game and rejected.
-- Identified the likely root failure of the rework: **pumpkin and carrot share the grid**, so when carrots dip below `MIN_PREREQ_STOCK` mid-grow, `plant_decision()` switches to carrots and plows the in-progress pumpkin field — restart-forever thrash.
-- **Reverted `main` to start-of-day (`d585c32`)** at the user's request ("that was closer than we are now"). Preserved the full day's work on branch `backup/pumpkin-wip-2026-06-13`.
-
-### Files Changed
-- **None on `main`** — `main` was reset to `d585c32`; working tree clean. (This commit only touches the session docs.)
-- Backup branch `backup/pumpkin-wip-2026-06-13` holds the reverted experiments (main.py, config.py, CLAUDE.md) for reference/recovery.
-
-### Commits This Session
-- `7475cb3` — Guard pumpkin planting against carrot shortage (committed, then reverted off `main`; lives on backup branch)
-- `920414a` — WIP backup: pumpkin mega-pumpkin + multi-drone experiments (backup branch only)
-
-### Decisions Made
-- **Reverted rather than kept iterating** — four pumpkin designs each performed worse in-game than the original per-tile logic; the original is the better baseline to build on next time.
-- **Preserved work on a branch instead of discarding** — the mechanic research and the convergence/multi-drone code are worth keeping for a future, smaller attempt.
-
-### Issues Encountered
-- Repeated in-game regressions from each pumpkin redesign (carrot drain → dead pumpkins left behind → field never converging / "1 drone, 1 column, keeps restarting").
-- Could not validate any change against the live game from the dev environment — every iteration depended on the user observing behavior, which lengthened the loop.
-
-### Remaining / Next Session
-- Decide pumpkin direction: minimal dead-pumpkin fix on the original logic vs. a properly-isolated mega-pumpkin retry that first solves the carrot/grid plow-thrash. Change one variable, watch one field.
-- Then resume the original goal: implement `farm_dinosaur()` / Bones farming (gates Polyculture Lvl 2).
-
----

@@ -7,21 +7,9 @@ treasure runs, Sunflower power farming, and Gold accumulation.
 
 ## Current Status
 
-Active development. The bot is **unlock-driven**: `plant_decision()` runs an Energy
-floor, then steers all effort to whatever resource the next upgrade needs (any
-resource, dynamically), and only falls back to lowest-stock balancing once the tech
-tree is fully maxed. It runs **32-drone monoculture** — the fast path. A `simulate()`-based
-harness guards against resource-starvation regressions. Steering is toward **Top_Hat**, the
-**final** unlock (crop costs met; the live bottleneck is **Gold**). The gold/maze path is
-now **multi-drone** (`MAZE_DRONES` solvers around the field perimeter, default 32 — see
-Features), making the previously slowest goal ~2–5× faster. With the tree nearly complete,
-focus is shifting to **game achievements** (five unlocked, captured as the
-`achievement-hunter` skill) and Leaderboards.
+Active development. The base-game bot is **unlock-driven** (`plant_decision()`: energy floor → steer to the next unlock's bottleneck → lowest-stock balance once everything is maxed) and runs **32-drone monoculture**; the gold/maze path is multi-drone (`MAZE_DRONES`, default 32). Companion farming exists but is default-OFF (measured ~19× slower).
 
-A full Polyculture **companion-farming** feature (`get_companion()`) was built this
-session but **measured ~19× slower** than 32-drone monoculture (single-drone can't beat
-32× parallelism even at the ×160 multiplier), so it ships **default-OFF** — kept for the
-verified mechanic and a possible future multi-drone rebuild.
+The current project is a **"Miner Was Replaced" DLC mining module**: the DLC resources (Coal, Iron, Quartz, Rice, Mushroom, Dynamite, Bamboo) have been characterised with throwaway probes and their rates measured, but **no DLC support is in `main.py` yet** — the bot would stall on DLC unlocks until it is built. Explosive_Drill is on the agreed blocked list. Detail: `project-state.md` / `session-summary.md`.
 
 ---
 
@@ -173,6 +161,13 @@ will not start and the game gives no error message.
 
 ## Recent Changes
 
+**2026-11-20 — DLC mining probes: rates measured, Dynamite bought, Explosive_Drill blocked**
+
+- Characterised the DLC resources with throwaway probes (no `main.py` change): Coal 2.28/s and Iron 1.81/s with Ore_Boost (bought), Rice ~10.8/s, Quartz ~0.16/s, Mushroom +1 per same-type merge (stratum in ~30% of worlds, 4–6 layers; ~0.16/s overall), Bamboo L1 ~103 per plant.
+- Bought Dynamite L1 and read its docs: a minesweeper puzzle (+1 per dud, ~10k per solved board estimated); a safe zero flood-fill cleared 188–300 tiles per run.
+- Decisions: Explosive_Drill (120k Mushroom + 12M Dynamite) is on the blocked list; surface Bamboo will be parallelized across the 32-drone split. A multi-drone Bamboo probe is written but not yet run.
+- Corrected the CLAUDE.md claim that `move()` never wraps (it wraps underground).
+
 **2026-06-19 (PM) — Parallel maze gold, five achievements, `achievement-hunter` skill**
 
 - **Parallelized the gold/maze path** (`farm_maze()`, `config.MAZE_DRONES`, default 32):
@@ -205,72 +200,15 @@ will not start and the game gives no error message.
 - Added the `throughput-ab` skill (measure resources/sec to A/B strategies); hardened
   `output-watcher` and `game-probe` with stale-content / probe-isolation gotchas.
 
-**2026-06-18 — Pumpkin/Bones fixes, unlock-steering rework, skill toolkit**
-
-- **Decision rework**: `plant_decision()` now steers to the next unlock's bottleneck
-  resource (via `get_next_unlock()`) and farms only that until the unlock is affordable;
-  lowest-stock balancing is the post-all-unlocks fallback. `auto_unlocks()` now buys any
-  fully-affordable unlock (multi-resource aware), fixing a bug that stranded Polyculture.
-  The goal line reads `Current Goal: <crop> for Unlock: <unlock>`.
-- **Bones**: rewrote `farm_bones()` to target an apple/tail count (`BONES_TARGET_TAIL`,
-  default 900 → ~32M Bones) instead of laps, counting apples via `measure()` and cashing
-  out at exactly the target. Fixed a bug where an origin-offset snake ate its own tail and
-  halted the whole bot. Calibrated: bones ≈ 40×tail², self-collision at tail ~1023.
-- **Pumpkin**: fixed empty plots (the wait loop was re-planting living pumpkins and
-  resetting growth) and hardened fertilizer/water handling; dead pumpkins are cleared by
-  `plant()` (never `till()` — it poisons the soil).
-- Removed the dead `MIN_WEIRD_SUBSTANCE_STOCK` knob (mazes now run when Gold is needed).
-- Added 7 project skills: `probe-sweep`, `output-watcher`, `ship-change`,
-  `verify-mechanic`, `diagnose-behavior`, `unlock-status`, `live-verify`.
-
-**2026-06-14 — simulate() harness, carrot-drain fix, and Bones farming**
-
-- Built a `simulate()` no-starvation benchmark harness (`gen_bench_main.py` generates
-  a terminating twin of `main`; `bench.py` runs it; results read from `output.txt`).
-- The harness reproduced a carrot-drain bug — pumpkin planting costs 256 Carrot and
-  drained the buffer to 0 — fixed with a `MIN_CARROT_FOR_PUMPKIN` reserve.
-- Implemented **Bones farming** (`farm_bones()`), a Dinosaur-hat snake yielding
-  `tail_length²` Bones; live-validated (~16.9k bones / 8 laps). This cleared the
-  Polyculture Lvl 2 blocker (10k Bones), which is now unlocked.
-- Added project skills `/bench` and `/game-probe`; moved farm skills to project scope.
-
-**2026-06-13 — Pumpkin rework explored and reverted (no net code change)**
-
-- Investigated pumpkin farming after it ran out of carrots and left dead pumpkins on
-  the grid. Documented the real mechanic (~20% of pumpkins die at maturity; a square
-  only merges into a giant when every tile is grown and alive at once; planting a
-  pumpkin costs carrots and auto-replaces a dead one).
-- Attempted a full mega-pumpkin rework (sweep-based → dead-pumpkin handling →
-  field convergence → multi-drone strips); each behaved worse in-game and was reverted.
-- `main` was reset to the prior commit; the experiments are preserved on branch
-  `backup/pumpkin-wip-2026-06-13`. Pumpkin still uses the original per-tile logic.
-
-**2026-06-01 — Crop transition clearing and MIN_WATER_LEVEL watering**
-
-- Fixed crop transition bug: when switching to a new crop, foreign entities (e.g.
-  immature carrots in a sunflower strip) were not being cleared before planting. Added
-  `can_harvest()` + `harvest()` + `till()` + ground-type recheck before every `plant()`
-  call in the entity-clearing path. Applied to carrot, wood-tree, wood-carrot-fill,
-  pumpkin, and both passes of `farm_sunflower_strip()`.
-- Fixed `till()` toggle bug: an unconditional `till()` after a clearing step was
-  bouncing a Soil cell back to Grassland. All `till()` calls are now guarded with
-  `if get_ground_type() != Grounds.Soil`.
-- Added `MIN_WATER_LEVEL = 0.5` to `config.py` and corresponding watering logic to
-  carrot, wood, and sunflower branches. Pumpkin's full-water-to-1.0 loop is unchanged.
-
 _Older sessions are summarized in `session-summary-archive.md`._
 
 ---
 
 ## Roadmap
 
-- **Finish the tech tree**: grind Top_Hat's remaining bottleneck (Cactus, then Gold) to
-  fully max the unlocks, then run steady-state balance indefinitely.
-- **Fertilizer auto-trade** — add `trade(Items.Fertilizer)` so Weird Substance (→ Gold via
-  maze) is self-sustaining; load-bearing now that Gold is a Top_Hat bottleneck.
-- Pumpkin mega-pumpkin reliability (take 2), isolating the carrot/grid plow-thrash.
-- Companion farming only becomes worthwhile via a **multi-drone (multi-strip) chain** or a
-  much higher Polyculture level — revisit only if the throughput math flips (use `throughput-ab`).
+- **DLC mining module**: run the pending multi-drone Bamboo probe, design the parallel Bamboo farm, optionally probe a Dynamite minesweeper solver, then implement DLC support in `main.py` (mining dispatched before the 32-drone farm branch, retry loops for the random Coal/Mushroom/Dynamite strata, a time-based stall watchdog, runtime unlock enumeration, blocked list = Explosive_Drill).
+- Fertilizer auto-trade (`trade(Items.Fertilizer)`) and pumpkin mega-pumpkin reliability — both low priority now.
+- Companion farming only becomes worthwhile via a **multi-drone (multi-strip) chain** or a much higher Polyculture level — revisit only if the throughput math flips (use `throughput-ab`).
 
 ---
 
