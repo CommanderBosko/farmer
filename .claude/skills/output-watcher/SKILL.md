@@ -93,3 +93,4 @@ summary, interpret pass/fail / where it died, and continue the workflow (e.g. na
   marker carrying the variant's identity (e.g. `BOOT MAZE_DRONES=32`), gate on that exact
   fresh marker, and count only lines after it (`awk '/BOOT .../{f=1;next} f&&/MEASURE/{c++}'`)
   — not sample-count + mtime.
+- **Probe runs can be silent for minutes (use a long settle).** World searches and per-experiment printing can leave `output.txt` untouched for 2–7 real minutes, because the game can run slow in real time. A 150 s quiet-period fallback fired mid-run on Probe M5. For probes use a settle of at least 450 s and a timeout of at least 40 min; keep short settles (about 15 s) for fast bones-snake runs only.
